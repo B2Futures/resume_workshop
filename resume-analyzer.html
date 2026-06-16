@@ -33,11 +33,12 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', system-u
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
 
-.shell { max-width: 940px; margin: 0 auto; padding: 48px 32px 80px; }
+.shell { max-width: 940px; margin: 0 auto; padding: 48px 48px 80px; }
 
 /* ── Header ── */
-.header { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 36px; padding-bottom: 28px; border-bottom: 1px solid var(--border); }
-.wordmark { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }
+.header { position: relative; text-align: center; margin-bottom: 36px; padding-bottom: 28px; border-bottom: 1px solid var(--border); }
+.mode-pill { position: absolute; right: 0; top: 0; }
+.wordmark { display: inline-flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }
 .wordmark-main { font-size: 22px; font-weight: 700; letter-spacing: -0.03em; color: var(--text); }
 .wordmark-tag { font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); padding: 2px 6px; border: 1px solid #1e3a6e; border-radius: 4px; background: #0a1e40; }
 .header-sub { font-size: 13px; color: var(--muted); }
@@ -131,6 +132,13 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', system-u
 }
 .doc-explain-toggle:hover { color: var(--muted); }
 #doc-explain-panel { margin-top: 8px; }
+
+
+/* ── Content section padding (prevents flush-to-edge on wide screens) ── */
+.content-section {
+  max-width: 860px;
+  margin: 0 auto;
+}
 
 /* ── Fields ── */
 .setup-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 16px; }
@@ -457,6 +465,7 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', system-u
   border: 1px solid #1e3a6e;
   border-radius: 12px;
   overflow: hidden;
+  margin-bottom: 4px;
 }
 #linkedin-section.visible { display: block; }
 
@@ -595,7 +604,8 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', system-u
 /* ── Post-approval tool sections ── */
 .tool-section {
   display: none;
-  margin-top: 16px;
+  margin-top: 20px;
+  margin-bottom: 20px;
   border: 1px solid #1e3a6e;
   border-radius: 12px;
   overflow: hidden;
@@ -695,9 +705,10 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', system-u
   margin-bottom: 14px;
 }
 #guide-toggle {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
-  justify-content: space-between;
+  gap: 12px;
   padding: 13px 18px;
   background: var(--surface);
   cursor: pointer;
@@ -706,12 +717,13 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', system-u
   width: 100%;
   font-family: inherit;
   transition: background 0.15s;
+  text-align: center;
 }
 #guide-toggle:hover { background: var(--raised); }
 .guide-toggle-left {
   display: flex;
   align-items: center;
-  gap: 10px;
+  justify-content: flex-start;
 }
 .guide-badge {
   font-size: 10px;
@@ -754,6 +766,9 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', system-u
   line-height: 1.7;
   margin-bottom: 24px;
   max-width: 680px;
+  text-align: center;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .guide-section-title {
@@ -767,7 +782,7 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', system-u
 .guide-steps-grid {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 10px;
   margin-bottom: 24px;
 }
 .guide-step-card {
@@ -777,7 +792,7 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', system-u
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 9px;
-  padding: 11px 14px;
+  padding: 13px 16px;
   transition: border-color 0.15s;
 }
 .guide-step-card:hover { border-color: var(--border2); }
@@ -894,12 +909,10 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', system-u
   <!-- How-to guide panel -->
   <div id="guide-panel">
     <button id="guide-toggle" onclick="toggleGuide()">
-      <div class="guide-toggle-left">
-        <span class="guide-badge">Guide</span>
-        <div>
-          <div class="guide-toggle-title">How to use Resume Analyzer</div>
-          <div class="guide-toggle-sub">What each step does, what to expect, and tips for best results</div>
-        </div>
+      <span class="guide-badge">Guide</span>
+      <div>
+        <div class="guide-toggle-title">How to use Resume Analyzer</div>
+        <div class="guide-toggle-sub">What each step does, what to expect, and tips for best results</div>
       </div>
       <span class="guide-chevron">▾</span>
     </button>
@@ -918,7 +931,7 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', system-u
           </div>
           <div class="guide-step-body">
             <div class="guide-step-name">Contact &amp; Header</div>
-            <div class="guide-step-desc">Checks your name, professional title line, email, phone, LinkedIn URL, and location format for completeness and ATS safety. Also runs a PII risk check — flags date of birth, photos, full home addresses, marital status, or other personal information that creates legal liability for employers and should be removed.</div>
+            <div class="guide-step-desc">Checks name, professional title line, email, phone, LinkedIn URL, and location format for completeness and ATS safety. For technical roles, also checks for a GitHub profile URL. Flags missing portfolio or professional site links for roles where online work samples matter. Runs a PII risk check — flags date of birth, photos, full home addresses, marital status, or other information that creates legal liability for employers.</div>
           </div>
         </div>
         <div class="guide-step-card">
@@ -972,7 +985,7 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', system-u
           </div>
           <div class="guide-step-body">
             <div class="guide-step-name">Supporting Sections</div>
-            <div class="guide-step-desc">Reviews Education, Certifications, Projects, Publications, Awards, Language Skills, and Patents for completeness and relevance. CV mode gives full treatment to academic credentials. Includes citation format guidance for publications (APA/MLA/Chicago by field), language proficiency level standards (Native through Intermediate), and patent formatting (title, number, authority, year).</div>
+            <div class="guide-step-desc">Reviews Education, Certifications, Projects, Publications, Awards, Language Skills, and Patents for completeness and relevance. CV mode gives full treatment to academic credentials. Includes citation format guidance (APA/MLA by field), language proficiency level standards (Native through Intermediate), patent formatting, and a references guidance note — "References available upon request" is outdated; the prompt advises having a formatted reference sheet ready instead.</div>
           </div>
         </div>
         <div class="guide-step-card">
@@ -1090,7 +1103,7 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', system-u
           </div>
           <div class="guide-step-body">
             <div class="guide-step-name">Generate LinkedIn Content<span class="guide-step-tag tag-optional">After Approval</span></div>
-            <div class="guide-step-desc">Generates six LinkedIn sections: Headline (3 variations), About (first person, 150–200 words, ends with CTA), Experience (all roles, narrative tone, no triage), Skills list (30–50 keywords by category), Featured section recommendations, and Profile Settings &amp; Recommendations (Open to Work configuration + three recommendation request templates). Each section has its own Copy button.</div>
+            <div class="guide-step-desc">Generates six LinkedIn sections: Headline (3 variations), About (first person, 150–200 words, ends with CTA), Experience (all roles, narrative tone, no triage), Skills list (30–50 keywords by category), Featured section recommendations, and Profile Settings — covering Open to Work configuration, three recommendation request templates, and a Profile Completeness checklist (photo, banner, custom URL, 500+ connections, endorsements).</div>
           </div>
         </div>
         </div>
@@ -1109,7 +1122,7 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', system-u
           </div>
           <div class="guide-step-body">
             <div class="guide-step-name">Interview Prep &amp; STAR Stories<span class="guide-step-tag tag-optional">After Approval</span></div>
-            <div class="guide-step-desc">Three-part package: (1) 12–15 likely interview questions across four categories with an explanation of what each is testing. (2) 5–6 STAR stories from your strongest achievements with Situation, Task, Action, Result, and guidance on which questions each answers. (3) Salary negotiation — positioning statement, leverage points, timing guidance, counter-offer language, and beyond-base negotiables.</div>
+            <div class="guide-step-desc">Three-part package: (1) 12–15 likely interview questions across four categories with an explanation of what each is testing. (2) 5–6 STAR stories from your strongest achievements with Situation, Task, Action, Result, and guidance on which questions each answers. (3) Salary negotiation and offer evaluation — positioning statement, leverage points, timing guidance, counter-offer language, beyond-base negotiables, and an offer evaluation framework for when the offer arrives.</div>
           </div>
         </div>
         <div class="guide-step-card optional">
@@ -1211,7 +1224,7 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', system-u
         <div class="guide-tip">
           <div class="guide-tip-icon">🔒</div>
           <div class="guide-tip-title">Authenticity is enforced</div>
-          <div class="guide-tip-text">The AI will never change the industry context of a role (a retail job stays retail), never invent metrics, and never insert keywords you can't back up in an interview. Genuine gaps are flagged, not papered over.</div>
+          <div class="guide-tip-text">The AI will never change the industry context of a role (a retail job stays retail), never invent metrics, and never insert keywords you can't back up in an interview. Genuine gaps are flagged, not papered over. The compiled document also includes a background check reminder — every date, title, and credential must match what a background check will return.</div>
         </div>
         <div class="guide-tip">
           <div class="guide-tip-icon">💾</div>
@@ -1237,6 +1250,7 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', system-u
   </div>
   </div>
 
+  <div class="content-section">
   <!-- Doc type -->
   <div class="doc-type-row">
     <button class="doc-type-btn active" data-type="resume" onclick="setDocType('resume')">
@@ -1356,6 +1370,8 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', system-u
     <div class="progress-bar-track"><div class="progress-bar-fill" id="progress-bar"></div></div>
     <div class="step-indicators" id="step-indicators"></div>
   </div>
+
+  </div><!-- end content-section -->
 
   <div id="results-wrap">
     <div class="results-header">
@@ -1840,6 +1856,14 @@ Check for:
 – Portfolio or GitHub if relevant to the role
 – Location (City, State only — never a full street address)
 – ATS safety: no tables, text boxes, or columns in the header
+– Portfolio or personal website URL (especially for creative, design, writing, and consulting roles)
+– GitHub profile URL (for technical roles — software, data, engineering — this is as important as LinkedIn)
+– Other relevant profile links (Behance for design, SSRN for academic/legal, ResearchGate for science)
+
+SOCIAL/DIGITAL PRESENCE NOTE:
+– For technical roles: flag if no GitHub URL is present and recommend adding one
+– Check that any URLs listed are clean short-form links, not raw redirects or broken paths
+– Note: recruiters in many fields will Google the candidate name — a professional online presence aligned with the resume is expected at senior levels
 
 PII RISK CHECK — flag any of the following if present:
 – Date of birth or age
@@ -1931,14 +1955,14 @@ For each role, list bullets by tier. For every task-level bullet, ask the candid
 Label the two parts clearly.`,
 
     supporting:
-`You are a professional resume and CV writer for ${industry}.
-Target role: ${role}. Document type: ${isCV ? 'CV' : 'Resume'}.${contextBlock}${jdBlock}
+`You are a professional resume and CV writer for \${industry}.
+Target role: \${role}. Document type: \${isCV ? 'CV' : 'Resume'}.\${contextBlock}\${jdBlock}
 
-Review all supporting sections of this ${isCV ? 'CV' : 'resume'} — Education, Certifications, Licenses, Projects, Publications, Presentations, Awards, Volunteering, Professional Affiliations, or any other sections below the Experience block.
+Review all supporting sections of this \${isCV ? 'CV' : 'resume'} — Education, Certifications, Licenses, Projects, Publications, Presentations, Awards, Volunteering, Professional Affiliations, or any other sections below the Experience block.
 
-${isCV
-  ? `This is a CV. Publications, Presentations, Research, Grants, and Affiliations are PRIMARY evaluation criteria — give them full treatment. List all entries with proper academic/professional citation format. Flag anything missing or improperly formatted.`
-  : `This is a resume. Be ruthless about relevance. Only include supporting content that serves the target role. Suggest removing anything that is outdated, irrelevant, or takes space from more impactful content.`}
+\${isCV
+  ? 'CV MODE: Publications, Presentations, Research, Grants, and Affiliations are PRIMARY evaluation criteria — give them full treatment. List all entries with proper academic/professional citation format. Flag anything missing or improperly formatted.'
+  : 'RESUME MODE: Be ruthless about relevance. Only include supporting content that serves the target role. Suggest removing anything outdated, irrelevant, or taking space from more impactful content.'}
 
 For each section present:
 – Evaluate completeness and formatting
@@ -1947,17 +1971,19 @@ For each section present:
 
 SECTION-SPECIFIC GUIDANCE:
 
-LANGUAGE SKILLS — If present, use standard proficiency levels: Native, Fluent (C2), Advanced (C1), Upper-Intermediate (B2), Intermediate (B1). Vague labels like "conversational" or "basic" should be replaced with these. If not present but the candidate's background suggests multilingual capability, note it as something to add.
+LANGUAGE SKILLS — Use standard proficiency levels only: Native, Fluent (C2), Advanced (C1), Upper-Intermediate (B2), Intermediate (B1). Replace vague labels like "conversational" or "basic". If multilingual capability is evident from the background but not listed, recommend adding it.
 
-PUBLICATIONS — Format using the appropriate citation standard for the field:
-- Academic/research: APA or MLA (author, year, title, journal, DOI)
-- Legal: Bluebook format
-- Business/trade: simplified (Title, Publication, Date)
-Flag any missing DOIs, missing co-authors, or improperly formatted entries.
+PUBLICATIONS — Use the appropriate citation format for the field:
+– Academic/research: APA format (Author, Year, Title, Journal, Volume, Pages, DOI)
+– Legal: Bluebook format
+– Business/trade: simplified (Title, Publication, Date)
+Flag missing DOIs, missing co-authors, or improperly formatted entries.
 
-PATENTS & IP — If patents are mentioned, format as: Patent Title, Patent Number, Issuing Authority, Year. If patent pending, note as "Patent Pending, Application #[number], [Year]". Flag any patents listed without numbers.
+PATENTS & IP — Format as: Patent Title, Patent Number, Issuing Authority, Year. If patent pending: "Patent Pending, Application #[number], Year". Flag any patents listed without numbers.
 
-PROJECTS — Include: project name, your role, technologies/methods used, and outcome or scale. For open-source or GitHub projects, include the repository URL if it strengthens the application.`,
+PROJECTS — Include: project name, your role, technologies/methods used, and outcome or scale. For open-source or GitHub projects, include the repository URL if it strengthens the application.
+
+REFERENCES — "References available upon request" is outdated and wastes space — never include it on a modern resume or CV. However, advise the candidate to have a separate formatted reference sheet ready to provide when asked. A reference sheet should include: name, title, company, relationship to candidate, phone, and email. Recommend 3–4 references: at least one former manager, one peer, one direct report or cross-functional partner if applicable.`,
 
     format:
 `You are a resume format specialist and ATS expert for ${industry}.
@@ -2167,32 +2193,47 @@ function buildCompanyPrompt(industry, role) {
 }
 
 function buildReconcilePrompt(results) {
+  // Returns {system, user} split — keeps system lean, analysis data in user message
   var role     = document.getElementById('ctx-role').value.trim() || 'not specified';
   var isCV     = currentDocType === 'cv';
   var docLabel = isCV ? 'CV' : 'resume';
   var stepCount = STEPS.filter(function(s) { return ['compile','reconcile'].indexOf(s.id) === -1 && results[s.id]; }).length;
-  var sections  = STEPS
-    .filter(function(s) { return ['compile','reconcile','company'].indexOf(s.id) === -1 && results[s.id]; })
-    .map(function(s) { return '=== ' + s.name.toUpperCase() + ' ===' + String.fromCharCode(10) + results[s.id]; })
-    .join(String.fromCharCode(10) + String.fromCharCode(10));
-  var companyBlock = results.company
-    ? (String.fromCharCode(10,10) + '=== COMPANY RESEARCH & ALIGNMENT ===' + String.fromCharCode(10) + results.company)
-    : '';
   var NL = String.fromCharCode(10);
-  return 'You are a meticulous document editor preparing a ' + docLabel + ' for final production. Target role: ' + role + '.' + NL + NL +
-    'Below are outputs from ' + stepCount + ' analysis steps.' + NL + NL +
-    'Extract EVERY discrete change recommended across all steps into a single numbered checklist.' + NL + NL +
-    'ANALYSIS OUTPUTS:' + NL + sections + companyBlock + NL + NL +
-    'FORMAT each item:' + NL +
-    '[N] [CATEGORY] - [Section] - [Specific action]' + NL + NL +
+
+  // Truncate each step output for LM Studio context safety (max 1200 chars per step)
+  // Claude's large context window handles full outputs without truncation
+  var maxPerStep = mode === 'lm' ? 1200 : 99999;
+
+  var system = 'You are a meticulous document editor preparing a ' + docLabel + ' for final production. Target role: ' + role + '.' + NL +
+    'The user will provide outputs from ' + stepCount + ' analysis steps.' + NL +
+    'Extract EVERY discrete change recommended into a single numbered checklist.' + NL + NL +
+    'FORMAT each item: [N] [CATEGORY] - [Section] - [Specific action]' + NL + NL +
     'Categories: CONTENT REWRITE | KEYWORD ADD | FRAMING ADJUST | STRUCTURAL FIX | ADDITION | REMOVAL' + NL + NL +
     'Rules:' + NL +
     '- Be exhaustive. Do not summarize or group distinct changes.' + NL +
     '- Be specific. Name the section, role, or bullet.' + NL +
     '- No commentary. Only actionable changes.' + NL +
     '- If a step produced a rewritten block, add: "Use rewritten version from [Step Name]" as a CONTENT REWRITE.' + NL +
-    '- Number every item from 1.' + NL + NL +
+    '- Number every item from 1.' + NL +
     'End with: TOTAL CHANGES: N (breakdown by category)';
+
+  var sections = STEPS
+    .filter(function(s) { return ['compile','reconcile','company'].indexOf(s.id) === -1 && results[s.id]; })
+    .map(function(s) {
+      var content = results[s.id];
+      if (content.length > maxPerStep) content = content.slice(0, maxPerStep) + '... [truncated for context]';
+      return '=== ' + s.name.toUpperCase() + ' ===' + NL + content;
+    })
+    .join(NL + NL);
+
+  var companyBlock = results.company
+    ? (NL + NL + '=== COMPANY RESEARCH & ALIGNMENT ===' + NL + (results.company.length > maxPerStep ? results.company.slice(0, maxPerStep) + '...' : results.company))
+    : '';
+
+  var user = 'Here are the analysis outputs. Extract every recommended change into the numbered checklist:' + NL + NL + sections + companyBlock;
+  if (!user || !user.trim()) user = 'Please extract all required changes from the analysis above into a numbered checklist.';
+
+  return { system: system, user: user };
 }
 
 function buildCompilePrompt(results) {
@@ -2248,7 +2289,7 @@ function buildCompilePrompt(results) {
     '\n\nOUTPUT:' +
     '\nFirst: the complete ' + docShort + ' document.' +
     '\nThen after a line of equals signs (=====), a COMPLIANCE NOTES section: list any checklist items not applied and why. If all applied, write "All checklist items applie' +
-    '\n\nADDITIONAL COMPILE RULES:\n- AUTHENTICITY: Never change the factual context of any experience. If a role was in retail, it stays retail. If a metric came from a small company, preserve that context. Emphasize what transfers accurately — do not reframe history to match the target industry.\n- Honor Role Relevance Triage: Full Write roles get 3-5 impact bullets; Condensed roles get 1-2 lines; Early Career Group roles become a single unlisted block; Dropped roles are omitted entirely.\n- Apply all Transferable Skills reframes from the transfer analysis step.\n- Apply all Voice Audit consistency fixes so every section sounds like the same professional.\n- The final document must read as a unified whole, not a patchwork.\n\nDIGITAL PRESENCE NOTE: After the compliance section, remind the candidate to verify these specific items match their LinkedIn profile: job titles, employment dates, employer names, and education credentials. Discrepancies between a resume and LinkedIn are a common recruiter red flag.';
+    '\n\nADDITIONAL COMPILE RULES:\n- AUTHENTICITY: Never change the factual context of any experience. If a role was in retail, it stays retail. If a metric came from a small company, preserve that context. Emphasize what transfers accurately — do not reframe history to match the target industry.\\n- REMOTE/HYBRID: If the document or JD signals a remote/hybrid preference, include a brief work preference note in the header or summary only if it strengthens the candidacy. Omit for clearly on-site roles.\n- Honor Role Relevance Triage: Full Write roles get 3-5 impact bullets; Condensed roles get 1-2 lines; Early Career Group roles become a single unlisted block; Dropped roles are omitted entirely.\n- Apply all Transferable Skills reframes from the transfer analysis step.\n- Apply all Voice Audit consistency fixes so every section sounds like the same professional.\n- The final document must read as a unified whole, not a patchwork.\n\nDIGITAL PRESENCE NOTE: After the compliance section, remind the candidate to verify these specific items match their LinkedIn profile: job titles, employment dates, employer names, and education credentials. Discrepancies between a resume and LinkedIn are a common recruiter red flag. (2) Background check reminder: employment dates, job titles, and education credentials on this document must match exactly what a background check will return. Even small discrepancies can rescind offers after signing.';
 }
 
 // ══════════════════════════════════════════════════════
@@ -2413,14 +2454,16 @@ function formatBytes(b) {
 // API — both Claude and LM Studio receive plain text
 // ══════════════════════════════════════════════════════
 async function callClaude(systemPrompt, userText) {
+  const safeSystem   = (systemPrompt && String(systemPrompt).trim()) ? String(systemPrompt) : 'You are a helpful assistant.';
+  const safeUserText = (userText     && String(userText).trim())     ? String(userText)     : 'Please proceed with the analysis.';
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       model: 'claude-sonnet-4-6',
       max_tokens: 4000,
-      system: systemPrompt,
-      messages: [{ role: 'user', content: userText }],
+      system: safeSystem,
+      messages: [{ role: 'user', content: safeUserText }],
     }),
   });
   const data = await res.json();
@@ -2429,16 +2472,18 @@ async function callClaude(systemPrompt, userText) {
 }
 
 async function callLMStudio(systemPrompt, userText) {
+  const safeSystem   = (systemPrompt && String(systemPrompt).trim()) ? String(systemPrompt) : 'You are a helpful assistant.';
+  const safeUserText = (userText     && String(userText).trim())     ? String(userText)     : 'Please proceed.';
   const base = (document.getElementById('lm-url').value.trim() || 'http://localhost:1234').replace(/\/$/, '');
-  const res = await fetch(`${base}/v1/chat/completions`, {
+  const res = await fetch(base + '/v1/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       model: 'local-model',
       max_tokens: 4000,
       messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user',   content: userText },
+        { role: 'system', content: safeSystem   },
+        { role: 'user',   content: safeUserText },
       ],
     }),
   });
@@ -2502,6 +2547,8 @@ async function callClaudeWithSearch(systemPrompt, userText) {
 
 async function callLMStudioWithSearch(systemPrompt, userText) {
   // Requires a web search plugin active in LM Studio server settings
+  const safeSystem2   = (systemPrompt && String(systemPrompt).trim()) ? String(systemPrompt) : 'You are a helpful assistant.';
+  const safeUserText2 = (userText     && String(userText).trim())     ? String(userText)     : 'Please proceed.';
   const base = (document.getElementById('lm-url').value.trim() || 'http://localhost:1234').replace(/\/$/, '');
   const res = await fetch(base + '/v1/chat/completions', {
     method: 'POST',
@@ -2522,8 +2569,8 @@ async function callLMStudioWithSearch(systemPrompt, userText) {
         },
       }],
       messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user',   content: userText },
+        { role: 'system', content: safeSystem2   },
+        { role: 'user',   content: safeUserText2 },
       ],
     }),
   });
@@ -2717,8 +2764,8 @@ async function handleRun() {
     setStepState(reconcileIdx, 'running');
     updateProgress(reconcileIdx, totalSteps, 'Reconciling fixes…');
     try {
-      const reconcileSys = buildReconcilePrompt(results);
-      results.reconcile = await callAI(reconcileSys, 'Extract every required change from the analysis outputs into a numbered checklist.');
+      const reconcilePrompt = buildReconcilePrompt(results);
+      results.reconcile = await callAI(reconcilePrompt.system, reconcilePrompt.user);
       setStepState(reconcileIdx, 'done');
     } catch (e) {
       setStepState(reconcileIdx, 'error');
@@ -3233,7 +3280,18 @@ function buildLinkedInPrompt(approvedDoc) {
     '\n1. TO A FORMER MANAGER — professional, specific about what you hope they will speak to, easy for them to write.' +
     '\n2. TO A PEER OR COLLEAGUE — more conversational, references a specific project or collaboration.' +
     '\n3. TO A DIRECT REPORT (if applicable based on the document) — asks them to speak to your leadership style and impact.' +
-    '\nEach message: 4-6 sentences. Warm but professional. Gives the writer enough context without being prescriptive.';
+    '\nEach message: 4-6 sentences. Warm but professional. Gives the writer enough context without being prescriptive.' +
+    '\n\nPART C — PROFILE COMPLETENESS CHECKLIST' +
+    '\nLinkedIn uses an All-Star rating for profile completeness. List what the candidate needs to reach All-Star and maximize discoverability:' +
+    '\n- Profile photo (professional headshot — profiles with photos get 21x more views)' +
+    '\n- Background banner image (custom or professional — the default blue is a missed branding opportunity)' +
+    '\n- Custom profile URL: change from linkedin.com/in/firstname-lastname12345 to linkedin.com/in/firstnamelastname — cleaner for resumes and email signatures' +
+    '\n- 500+ connections (LinkedIn caps display at 500+, which signals an established network)' +
+    '\n- All five skills endorsed by at least one connection' +
+    '\n- At least one recommendation received (not just given)' +
+    '\n- Current position with description' +
+    '\n- Education section complete' +
+    '\nNote which of these the candidate likely has based on their document, and which are missing.';
 }
 
 async function generateLinkedIn() {
@@ -3413,7 +3471,13 @@ function buildInterviewPrepPrompt(approvedDoc) {
     NL + '2. LEVERAGE POINTS: 3-4 specific achievements or credentials from the resume that justify top-of-range compensation.' +
     NL + '3. TIMING GUIDANCE: When to bring up compensation, when not to, how to handle early pressure to name a number.' +
     NL + '4. COUNTER-OFFER LANGUAGE: If the first offer comes in low — specific, professional, non-adversarial language to use.' +
-    NL + '5. BEYOND BASE SALARY: 3-4 other negotiable elements (equity, signing bonus, title, remote flexibility, review timing, professional development budget).';
+    NL + '5. BEYOND BASE SALARY: 3-4 other negotiable elements (equity, signing bonus, title, remote flexibility, review timing, professional development budget).'; +
+    '\n\n6. OFFER EVALUATION FRAMEWORK: When an offer arrives, provide a simple framework:' +
+    '\n   - Total compensation: base + bonus target + equity (understand vesting schedule) + benefits value' +
+    '\n   - Growth trajectory: does this role accelerate or plateau the career arc shown in the document?' +
+    '\n   - Walk-away number: define this privately before negotiations begin' +
+    '\n   - Competing offers: how to use one ethically and effectively without burning the relationship' +
+    '\n   - Signing deadline: companies often push for fast decisions; it is acceptable to ask for 48-72 hours to review carefully'
 }
 
 async function generateInterviewPrep() {
