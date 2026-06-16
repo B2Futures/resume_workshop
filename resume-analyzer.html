@@ -1,0 +1,3614 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Resume Analyzer</title>
+<!-- PDF.js for client-side PDF text extraction (LM Studio + Claude both use extracted text) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<!-- Mammoth.js for DOCX text extraction -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:       #04080f;
+  --surface:  #080f1c;
+  --raised:   #0d1829;
+  --border:   #152035;
+  --border2:  #1e3050;
+  --text:     #e8edf5;
+  --muted:    #5a7090;
+  --subtle:   #334a66;
+  --accent:   #3b7eff;
+  --accent-d: #1a56d6;
+  --green:    #22c55e;
+  --amber:    #f59e0b;
+  --red:      #ef4444;
+  --mono:     'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+}
+
+body { background: var(--bg); color: var(--text); font-family: 'Inter', system-ui, sans-serif; min-height: 100vh; line-height: 1.6; }
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+.shell { max-width: 940px; margin: 0 auto; padding: 48px 32px 80px; }
+
+/* ── Header ── */
+.header { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 36px; padding-bottom: 28px; border-bottom: 1px solid var(--border); }
+.wordmark { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }
+.wordmark-main { font-size: 22px; font-weight: 700; letter-spacing: -0.03em; color: var(--text); }
+.wordmark-tag { font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); padding: 2px 6px; border: 1px solid #1e3a6e; border-radius: 4px; background: #0a1e40; }
+.header-sub { font-size: 13px; color: var(--muted); }
+.mode-pill { display: flex; gap: 3px; background: var(--raised); border: 1px solid var(--border); border-radius: 8px; padding: 3px; }
+.mode-pill button { padding: 5px 14px; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; background: transparent; color: var(--muted); font-family: inherit; transition: all 0.15s; }
+.mode-pill button.active { background: var(--border2); color: #7eb3ff; }
+
+/* ── Doc type ── */
+.doc-type-row { display: flex; gap: 10px; margin-bottom: 16px; }
+.doc-type-btn { flex: 1; padding: 14px 20px; border-radius: 10px; border: 1.5px solid var(--border2); background: var(--surface); color: var(--muted); cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 600; text-align: left; transition: all 0.18s; }
+.doc-type-btn:hover { border-color: var(--accent); color: var(--text); }
+.doc-type-btn.active { border-color: var(--accent); background: #071428; color: var(--text); }
+.doc-type-btn .dt-icon { font-size: 20px; margin-bottom: 6px; display: block; }
+.doc-type-btn .dt-name { font-size: 14px; font-weight: 700; color: var(--text); display: block; margin-bottom: 2px; }
+.doc-type-btn .dt-desc { font-size: 11px; color: var(--muted); font-weight: 400; display: block; line-height: 1.4; }
+.doc-type-btn.active .dt-desc { color: #7eb3ff; }
+
+
+/* ── Resume vs CV explanation panel ── */
+#doc-explain-panel {
+  display: none;
+  margin-top: 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+#doc-explain-panel.visible { display: block; }
+.doc-explain-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+}
+.doc-explain-col {
+  padding: 18px 20px;
+  border-right: 1px solid var(--border);
+}
+.doc-explain-col:last-child { border-right: none; }
+.doc-explain-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+.doc-explain-label.resume-color { color: var(--accent); }
+.doc-explain-label.cv-color     { color: #a78bfa; }
+.doc-explain-list {
+  list-style: none;
+  margin: 0; padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.doc-explain-list li {
+  font-size: 12px;
+  color: #6a8faf;
+  line-height: 1.5;
+  padding-left: 14px;
+  position: relative;
+}
+.doc-explain-list li::before {
+  content: '–';
+  position: absolute;
+  left: 0;
+  color: var(--subtle);
+}
+.doc-explain-when {
+  padding: 12px 20px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+.doc-explain-when strong { color: var(--text); }
+.doc-explain-toggle {
+  width: 100%;
+  padding: 8px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 11px;
+  color: var(--subtle);
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  transition: color 0.15s;
+  margin-top: 10px;
+  margin-bottom: 16px;
+}
+.doc-explain-toggle:hover { color: var(--muted); }
+#doc-explain-panel { margin-top: 8px; }
+
+/* ── Fields ── */
+.setup-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+.field label { display: block; font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+.field input, .field textarea { width: 100%; background: var(--raised); border: 1px solid var(--border); border-radius: 7px; padding: 8px 11px; color: var(--text); font-size: 13px; font-family: inherit; outline: none; transition: border-color 0.15s; }
+.field input:focus, .field textarea:focus { border-color: var(--accent); }
+.field input::placeholder, .field textarea::placeholder { color: var(--subtle); }
+
+/* ── JD ── */
+.jd-wrap { margin-bottom: 16px; }
+.jd-label { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.jd-label span { font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.jd-optional { font-size: 10px; color: var(--subtle); font-weight: 400; text-transform: none; letter-spacing: 0; }
+.jd-wrap textarea { width: 100%; background: var(--raised); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; color: var(--text); font-size: 13px; font-family: inherit; outline: none; resize: vertical; min-height: 100px; line-height: 1.65; transition: border-color 0.15s; }
+.jd-wrap textarea:focus { border-color: var(--accent); }
+.jd-wrap textarea::placeholder { color: var(--subtle); }
+
+/* ── LM URL ── */
+#lm-url-row { display: none; margin-bottom: 16px; }
+#lm-url-row.visible { display: block; }
+
+/* ── Drop zone ── */
+.drop-zone { border: 1.5px dashed var(--border2); border-radius: 14px; background: var(--surface); padding: 44px 32px; text-align: center; cursor: pointer; transition: all 0.2s; margin-bottom: 16px; }
+.drop-zone:hover, .drop-zone.drag-over { border-color: var(--accent); background: #091525; }
+.drop-zone.has-file { border-style: solid; border-color: var(--green); background: #081510; padding: 24px 32px; cursor: default; }
+.drop-icon { font-size: 32px; margin-bottom: 12px; opacity: 0.6; }
+.drop-title { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 5px; }
+.drop-sub { font-size: 12px; color: var(--muted); }
+#file-input { display: none; }
+.file-info { display: none; align-items: center; gap: 14px; }
+.drop-zone.has-file .file-info { display: flex; }
+.drop-zone.has-file .drop-empty { display: none; }
+.file-icon { width: 42px; height: 42px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+.file-icon.pdf  { background: #2a0d0d; color: #f87171; }
+.file-icon.docx { background: #0d1d3a; color: #60a5fa; }
+.file-meta { text-align: left; flex: 1; }
+.file-name { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 2px; }
+.file-size { font-size: 12px; color: var(--muted); }
+.file-status { font-size: 11px; margin-top: 3px; }
+.file-status.extracting { color: var(--amber); }
+.file-status.ready      { color: var(--green); }
+.file-status.error      { color: var(--red); }
+.file-remove { background: transparent; border: 1px solid var(--border2); border-radius: 6px; color: var(--muted); padding: 5px 10px; font-size: 12px; cursor: pointer; font-family: inherit; transition: all 0.15s; }
+.file-remove:hover { border-color: var(--red); color: #f87171; }
+
+/* ── Extracted text preview ── */
+#extract-preview-wrap {
+  display: none;
+  margin-bottom: 16px;
+}
+#extract-preview-wrap.visible { display: block; }
+#extract-preview-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  color: var(--muted);
+  width: 100%;
+  transition: all 0.15s;
+  margin-bottom: 0;
+}
+#extract-preview-toggle:hover { border-color: var(--border2); color: var(--text); }
+#extract-preview-toggle.open { border-bottom-left-radius: 0; border-bottom-right-radius: 0; border-bottom-color: transparent; }
+#extract-preview-body {
+  display: none;
+  background: #060e1a;
+  border: 1px solid var(--border);
+  border-top: none;
+  border-bottom-left-radius: 8px;
+  border-bottom-right-radius: 8px;
+  padding: 12px 14px;
+  font-size: 11px;
+  color: #6a8faf;
+  font-family: var(--mono);
+  line-height: 1.6;
+  max-height: 200px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+}
+#extract-preview-toggle.open + #extract-preview-body { display: block; }
+
+/* ── Run button ── */
+#run-btn { width: 100%; background: var(--accent); color: #fff; border: none; border-radius: 10px; padding: 14px; font-size: 14px; font-weight: 700; cursor: pointer; font-family: inherit; letter-spacing: 0.01em; transition: all 0.15s; margin-bottom: 32px; }
+#run-btn:hover:not(:disabled) { background: var(--accent-d); }
+#run-btn:disabled { opacity: 0.45; cursor: default; }
+
+/* ── Progress ── */
+#progress-wrap { display: none; margin-bottom: 32px; }
+#progress-wrap.visible { display: block; }
+.progress-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+.progress-label { font-size: 12px; font-weight: 600; color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; }
+#progress-pct { font-size: 12px; color: var(--accent); font-weight: 700; }
+.progress-bar-track { height: 3px; background: var(--raised); border-radius: 2px; overflow: hidden; margin-bottom: 16px; }
+.progress-bar-fill { height: 100%; background: var(--accent); border-radius: 2px; transition: width 0.4s ease; width: 0%; }
+.step-indicators { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.step-ind { display: flex; align-items: center; gap: 6px; padding: 6px 9px; border-radius: 8px; background: var(--raised); border: 1px solid var(--border); font-size: 11px; color: var(--subtle); transition: all 0.25s; overflow: hidden; }
+.step-ind.running { border-color: var(--accent); color: #7eb3ff; background: #071428; }
+.step-ind.done    { border-color: #1a4a2a; color: var(--green); background: #081510; }
+.step-ind.skipped { border-color: var(--border); color: var(--subtle); opacity: 0.5; }
+.step-ind.error-state { border-color: #4a1a1a; color: #f87171; background: #150808; }
+.ind-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--border2); flex-shrink: 0; transition: all 0.25s; }
+.step-ind.running .ind-dot { background: var(--accent); box-shadow: 0 0 6px var(--accent); animation: pulse 1s ease-in-out infinite; }
+.step-ind.done .ind-dot    { background: var(--green); }
+.step-ind.error-state .ind-dot { background: var(--red); }
+.ind-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+@keyframes pulse { 0%,100%{opacity:1}50%{opacity:.35} }
+
+/* ── Error ── */
+#error-box { display:none; background:#150808; border:1px solid #5a1a1a; border-radius:10px; padding:14px 18px; color:#fca5a5; font-size:13px; margin-bottom:24px; line-height: 1.6; }
+#error-box.visible { display:block; }
+
+/* ── Results ── */
+#results-wrap { display: none; }
+#results-wrap.visible { display: block; }
+.results-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px; padding-bottom: 18px; border-bottom: 1px solid var(--border); flex-wrap: wrap; gap: 12px; }
+.results-title { font-size: 18px; font-weight: 700; letter-spacing: -0.02em; }
+.results-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn-ghost { background: transparent; border: 1px solid var(--border2); border-radius: 7px; padding: 7px 14px; font-size: 12px; font-weight: 600; color: var(--muted); cursor: pointer; font-family: inherit; transition: all 0.15s; }
+.btn-ghost:hover { border-color: var(--accent); color: #7eb3ff; }
+.btn-pdf { background: #071428; border: 1px solid var(--accent); border-radius: 7px; padding: 7px 16px; font-size: 12px; font-weight: 700; color: #7eb3ff; cursor: pointer; font-family: inherit; transition: all 0.15s; }
+.btn-pdf:hover { background: #0a1e40; }
+
+/* ── Result sections ── */
+.result-section { margin-bottom: 16px; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+.result-section-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; background: var(--surface); border-bottom: 1px solid var(--border); cursor: pointer; user-select: none; }
+.result-section-head:hover { background: var(--raised); }
+.section-label { display: flex; align-items: center; gap: 10px; }
+.section-num { width: 24px; height: 24px; border-radius: 6px; background: #0a1e40; border: 1px solid #1e3a6e; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: #7eb3ff; flex-shrink: 0; }
+.section-num.skipped-num { background: var(--raised); border-color: var(--border); color: var(--subtle); }
+.section-name { font-size: 13px; font-weight: 600; color: var(--text); }
+.section-desc { font-size: 11px; color: var(--muted); }
+.chevron { color: var(--subtle); font-size: 12px; transition: transform 0.2s; }
+.result-section.collapsed .chevron { transform: rotate(-90deg); }
+
+/* ── Detail panel ── */
+.result-detail { padding: 16px 20px; background: #06101e; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 10px; }
+.rd-row { display: flex; gap: 14px; }
+.rd-label { flex-shrink: 0; width: 88px; font-size: 10px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; padding-top: 2px; }
+.rd-text { font-size: 12px; color: #6a8faf; line-height: 1.6; }
+.rd-what   { color: #7eb3ff; }
+.rd-how    { color: #a78bfa; }
+.rd-output { color: #34d399; }
+
+/* ── Result body ── */
+.result-body { padding: 20px; background: var(--bg); font-size: 13px; color: #b0c4de; line-height: 1.8; white-space: pre-wrap; font-family: var(--mono); max-height: 520px; overflow-y: auto; }
+.result-section.collapsed .result-body,
+.result-section.collapsed .result-detail { display: none; }
+.result-skipped { padding: 14px 20px; background: var(--bg); font-size: 12px; color: var(--subtle); font-style: italic; }
+.result-section.collapsed .result-skipped { display: none; }
+.section-copy { background: transparent; border: 1px solid var(--border); border-radius: 5px; padding: 4px 9px; font-size: 11px; color: var(--subtle); cursor: pointer; font-family: inherit; transition: all 0.15s; }
+.section-copy:hover { border-color: var(--accent); color: #7eb3ff; }
+
+/* ── PDF / compile section ── */
+.pdf-section { margin-top: 24px; border: 1px solid #1e3a6e; border-radius: 12px; overflow: hidden; }
+.pdf-section-head { padding: 16px 20px; background: #071428; border-bottom: 1px solid #1e3a6e; display: flex; align-items: center; justify-content: space-between; }
+.pdf-section-title { font-size: 14px; font-weight: 700; color: #7eb3ff; }
+.pdf-section-desc  { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.pdf-preview { padding: 24px; background: var(--bg); font-size: 13px; color: #b0c4de; line-height: 1.8; white-space: pre-wrap; font-family: var(--mono); max-height: 500px; overflow-y: auto; }
+
+/* ── Toast ── */
+#copy-all-toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(10px); background: var(--green); color: #fff; font-size: 13px; font-weight: 600; padding: 10px 20px; border-radius: 8px; opacity: 0; pointer-events: none; transition: all 0.3s; }
+#copy-all-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+
+/* ── Review / Revision / Approval ── */
+#review-section {
+  display: none;
+  margin-top: 20px;
+  border: 1px solid var(--border2);
+  border-radius: 12px;
+  overflow: hidden;
+}
+#review-section.visible { display: block; }
+
+.review-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  background: #071428;
+  border-bottom: 1px solid var(--border2);
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.review-header-left {}
+.review-title { font-size: 14px; font-weight: 700; color: #7eb3ff; margin-bottom: 2px; }
+.review-subtitle { font-size: 11px; color: var(--muted); }
+.review-header-right { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+.revision-counter {
+  font-size: 11px;
+  color: var(--subtle);
+  padding: 4px 10px;
+  background: var(--raised);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+}
+
+.btn-approve {
+  background: #0f3020;
+  border: 1px solid #22c55e;
+  color: #4ade80;
+  border-radius: 8px;
+  padding: 8px 18px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+.btn-approve:hover { background: #163a28; }
+.btn-approve.approved {
+  background: #22c55e;
+  color: #fff;
+  border-color: #22c55e;
+}
+.btn-unapprove {
+  background: transparent;
+  border: 1px solid var(--border2);
+  color: var(--muted);
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 11px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+.btn-unapprove:hover { border-color: var(--amber); color: var(--amber); }
+
+#doc-editor {
+  width: 100%;
+  min-height: 360px;
+  background: var(--bg);
+  border: none;
+  border-bottom: 1px solid var(--border);
+  padding: 20px;
+  color: #b0c4de;
+  font-size: 13px;
+  font-family: var(--mono);
+  line-height: 1.8;
+  resize: vertical;
+  outline: none;
+  box-sizing: border-box;
+}
+#doc-editor:focus { background: #040c18; }
+#doc-editor[readonly] { opacity: 0.7; cursor: default; background: #030810; }
+
+.feedback-row {
+  display: flex;
+  gap: 10px;
+  padding: 14px 18px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  align-items: flex-start;
+}
+#feedback-input {
+  flex: 1;
+  background: var(--raised);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 9px 12px;
+  color: var(--text);
+  font-size: 13px;
+  font-family: inherit;
+  resize: none;
+  outline: none;
+  min-height: 38px;
+  max-height: 120px;
+  transition: border-color 0.15s;
+  overflow-y: auto;
+}
+#feedback-input:focus { border-color: var(--accent); }
+#feedback-input::placeholder { color: var(--subtle); }
+#feedback-input[disabled] { opacity: 0.4; cursor: not-allowed; }
+
+.btn-apply-feedback {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 9px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+.btn-apply-feedback:hover:not(:disabled) { background: var(--accent-d); }
+.btn-apply-feedback:disabled { opacity: 0.45; cursor: default; }
+
+.feedback-note {
+  padding: 8px 18px;
+  font-size: 11px;
+  color: var(--subtle);
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  font-style: italic;
+}
+
+.revision-spinner {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  font-size: 12px;
+  color: #7eb3ff;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+}
+.revision-spinner.visible { display: flex; }
+
+/* ── LinkedIn Section ── */
+#linkedin-section {
+  display: none;
+  margin-top: 20px;
+  border: 1px solid #1e3a6e;
+  border-radius: 12px;
+  overflow: hidden;
+}
+#linkedin-section.visible { display: block; }
+
+.linkedin-header {
+  padding: 16px 20px;
+  background: #071428;
+  border-bottom: 1px solid #1e3a6e;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.linkedin-header-title { font-size: 14px; font-weight: 700; color: #7eb3ff; margin-bottom: 2px; }
+.linkedin-header-desc  { font-size: 11px; color: var(--muted); }
+.btn-generate-linkedin {
+  background: #0a1e40;
+  border: 1px solid var(--accent);
+  color: #7eb3ff;
+  border-radius: 8px;
+  padding: 9px 18px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+.btn-generate-linkedin:hover:not(:disabled) { background: #0f2a55; }
+.btn-generate-linkedin:disabled { opacity: 0.45; cursor: default; }
+
+#linkedin-progress {
+  display: none;
+  padding: 14px 18px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: #7eb3ff;
+  align-items: center;
+  gap: 8px;
+}
+#linkedin-progress.visible { display: flex; }
+
+#linkedin-output { display: none; }
+#linkedin-output.visible { display: block; }
+
+.linkedin-subsection {
+  border-top: 1px solid var(--border);
+}
+.linkedin-sub-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 11px 18px;
+  background: var(--surface);
+  cursor: pointer;
+  user-select: none;
+}
+.linkedin-sub-head:hover { background: var(--raised); }
+.linkedin-sub-name { font-size: 13px; font-weight: 600; color: var(--text); }
+.linkedin-sub-desc { font-size: 11px; color: var(--muted); }
+.linkedin-sub-body {
+  padding: 18px 20px;
+  background: var(--bg);
+  font-size: 13px;
+  color: #b0c4de;
+  line-height: 1.8;
+  white-space: pre-wrap;
+  font-family: var(--mono);
+  max-height: 400px;
+  overflow-y: auto;
+}
+.linkedin-sub-body.collapsed { display: none; }
+
+.linkedin-disclaimer {
+  padding: 12px 18px;
+  background: #0f1a0a;
+  border-top: 1px solid #1a3a10;
+  font-size: 11px;
+  color: #6a8a5a;
+  font-style: italic;
+}
+
+
+
+/* ── One-page variant tabs in review panel ── */
+.editor-tabs {
+  display: flex;
+  gap: 0;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border2);
+}
+.editor-tab {
+  padding: 9px 18px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  font-family: inherit;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s;
+}
+.editor-tab:hover { color: var(--text); }
+.editor-tab.active { color: #7eb3ff; border-bottom-color: var(--accent); }
+.editor-tab-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px;
+}
+.btn-generate-1page {
+  background: var(--raised);
+  border: 1px solid var(--border2);
+  color: var(--muted);
+  border-radius: 6px;
+  padding: 5px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+.btn-generate-1page:hover:not(:disabled) { border-color: var(--accent); color: #7eb3ff; }
+.btn-generate-1page:disabled { opacity: 0.45; cursor: default; }
+.onepage-spinner {
+  display: none;
+  font-size: 11px;
+  color: #7eb3ff;
+  align-items: center;
+  gap: 6px;
+}
+.onepage-spinner.visible { display: flex; }
+
+/* ── Post-approval tool sections ── */
+.tool-section {
+  display: none;
+  margin-top: 16px;
+  border: 1px solid #1e3a6e;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.tool-section.visible { display: block; }
+
+.tool-header {
+  padding: 16px 20px;
+  background: #071428;
+  border-bottom: 1px solid #1e3a6e;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.tool-header-title { font-size: 14px; font-weight: 700; color: #7eb3ff; margin-bottom: 2px; }
+.tool-header-desc  { font-size: 11px; color: var(--muted); }
+
+.tool-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+.btn-tool {
+  background: #0a1e40;
+  border: 1px solid var(--accent);
+  color: #7eb3ff;
+  border-radius: 8px;
+  padding: 9px 18px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.btn-tool:hover:not(:disabled) { background: #0f2a55; }
+.btn-tool:disabled { opacity: 0.45; cursor: default; }
+
+.tool-disclaimer {
+  padding: 10px 18px;
+  background: #0f1a0a;
+  border-top: 1px solid #1a3a10;
+  font-size: 11px;
+  color: #6a8a5a;
+  font-style: italic;
+}
+
+.tool-spinner {
+  display: none;
+  padding: 14px 18px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: #7eb3ff;
+  align-items: center;
+  gap: 8px;
+}
+.tool-spinner.visible { display: flex; }
+
+.tool-output { display: none; }
+.tool-output.visible { display: block; }
+
+.tool-subsection { border-top: 1px solid var(--border); }
+.tool-sub-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 11px 18px; background: var(--surface);
+  cursor: pointer; user-select: none;
+}
+.tool-sub-head:hover { background: var(--raised); }
+.tool-sub-name { font-size: 13px; font-weight: 600; color: var(--text); }
+.tool-sub-desc { font-size: 11px; color: var(--muted); }
+.tool-sub-body {
+  padding: 18px 20px; background: var(--bg);
+  font-size: 13px; color: #b0c4de; line-height: 1.8;
+  white-space: pre-wrap; font-family: var(--mono);
+  max-height: 480px; overflow-y: auto;
+}
+.tool-sub-body.collapsed { display: none; }
+
+/* ── Print ── */
+@media print {
+  body { background: #fff !important; color: #000 !important; font-family: 'Georgia', serif !important; }
+  .shell { padding: 0 !important; max-width: 100% !important; }
+  .header, .doc-type-row, .setup-grid, .jd-wrap, #lm-url-row, .drop-zone,
+  #run-btn, #progress-wrap, #error-box, .results-header,
+  .result-section, .pdf-section-head .btn-pdf, #copy-all-toast { display: none !important; }
+  #results-wrap { display: block !important; }
+  #pdf-output-section { display: block !important; }
+  .pdf-document { display: block !important; font-family: 'Georgia', serif; color: #111; font-size: 11pt; line-height: 1.6; }
+  .pdf-document * { color: #111 !important; background: transparent !important; }
+}
+
+/* ── How-to guide panel ── */
+#guide-panel {
+  border: 1px solid var(--border2);
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 14px;
+}
+#guide-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 13px 18px;
+  background: var(--surface);
+  cursor: pointer;
+  user-select: none;
+  border: none;
+  width: 100%;
+  font-family: inherit;
+  transition: background 0.15s;
+}
+#guide-toggle:hover { background: var(--raised); }
+.guide-toggle-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.guide-badge {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: #0a1e40;
+  border: 1px solid #1e3a6e;
+  border-radius: 4px;
+  padding: 2px 7px;
+}
+.guide-toggle-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+.guide-toggle-sub {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 1px;
+}
+.guide-chevron {
+  font-size: 12px;
+  color: var(--subtle);
+  transition: transform 0.2s;
+  flex-shrink: 0;
+}
+#guide-panel.collapsed .guide-chevron { transform: rotate(-90deg); }
+#guide-body {
+  background: var(--bg);
+  border-top: 1px solid var(--border);
+  padding: 24px 24px 28px;
+}
+#guide-panel.collapsed #guide-body { display: none; }
+
+.guide-intro {
+  font-size: 13px;
+  color: #8ba5c0;
+  line-height: 1.7;
+  margin-bottom: 24px;
+  max-width: 680px;
+}
+
+.guide-section-title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 14px;
+}
+.guide-steps-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 24px;
+}
+.guide-step-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  padding: 11px 14px;
+  transition: border-color 0.15s;
+}
+.guide-step-card:hover { border-color: var(--border2); }
+.guide-step-card.optional { opacity: 0.8; }
+.guide-step-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  width: 28px;
+}
+.guide-step-badge-num {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  background: #0a1e40;
+  border: 1px solid #1e3a6e;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  color: #7eb3ff;
+  flex-shrink: 0;
+}
+.guide-step-badge-num.opt {
+  background: var(--raised);
+  border-color: var(--border);
+  color: var(--subtle);
+}
+.guide-step-body { flex: 1; min-width: 0; }
+.guide-step-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: #94b8d0;
+  margin-bottom: 2px;
+}
+.guide-step-desc {
+  font-size: 11px;
+  color: #5a7090;
+  line-height: 1.5;
+}
+.guide-step-tag {
+  display: inline-block;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  padding: 1px 5px;
+  border-radius: 3px;
+  margin-left: 5px;
+  vertical-align: middle;
+}
+.tag-optional { background: #1a1a0a; color: #8a7a30; border: 1px solid #3a3010; }
+.tag-system   { background: #0a1a0a; color: #3a8a3a; border: 1px solid #1a4a1a; }
+
+.guide-tips {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+.guide-tip {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  padding: 13px 14px;
+}
+.guide-tip-icon { font-size: 16px; margin-bottom: 7px; }
+.guide-tip-title { font-size: 11px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+.guide-tip-text  { font-size: 11px; color: var(--muted); line-height: 1.5; }
+
+.guide-dismiss {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+.guide-dismiss button {
+  background: transparent;
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+.guide-dismiss button:hover { border-color: var(--accent); color: #7eb3ff; }
+
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <header class="header">
+    <div>
+      <div class="wordmark">
+        <span class="wordmark-main">Resume Analyzer</span>
+        <span class="wordmark-tag">Auto</span>
+      </div>
+      <p class="header-sub">Drop a resume or CV — get a full AI audit and a job-targeted document output.</p>
+    </div>
+    <div class="mode-pill">
+      <button class="active" data-mode="claude" onclick="setMode('claude')">Claude</button>
+      <button data-mode="lm" onclick="setMode('lm')">LM Studio</button>
+    </div>
+  </header>
+
+
+  <!-- How-to guide panel -->
+  <div id="guide-panel">
+    <button id="guide-toggle" onclick="toggleGuide()">
+      <div class="guide-toggle-left">
+        <span class="guide-badge">Guide</span>
+        <div>
+          <div class="guide-toggle-title">How to use Resume Analyzer</div>
+          <div class="guide-toggle-sub">What each step does, what to expect, and tips for best results</div>
+        </div>
+      </div>
+      <span class="guide-chevron">▾</span>
+    </button>
+
+    <div id="guide-body">
+      <p class="guide-intro">
+        Resume Analyzer runs 15 AI steps on your uploaded resume or CV — no copy-pasting required. After the analysis, the compiled document opens in a live editor where you can refine it and request AI-powered revisions. Once approved, five generators unlock: LinkedIn profile content, a personalized cover letter, a full interview prep package (questions, STAR stories, salary negotiation), post-interview email templates, and a 1-page resume variant. Steps marked <strong>Optional</strong> are skipped automatically when the relevant input isn't provided. Steps marked <strong>System</strong> run automatically.
+      </p>
+
+      <div style="margin-bottom:24px;">
+        <div class="guide-section-title">The 15 Analysis Steps</div>
+        <div class="guide-steps-grid">
+        <div class="guide-step-card">
+          <div class="guide-step-badge">
+            <div class="guide-step-badge-num">1</div>
+          </div>
+          <div class="guide-step-body">
+            <div class="guide-step-name">Contact &amp; Header</div>
+            <div class="guide-step-desc">Checks your name, professional title line, email, phone, LinkedIn URL, and location format for completeness and ATS safety. Also runs a PII risk check — flags date of birth, photos, full home addresses, marital status, or other personal information that creates legal liability for employers and should be removed.</div>
+          </div>
+        </div>
+        <div class="guide-step-card">
+          <div class="guide-step-badge">
+            <div class="guide-step-badge-num">2</div>
+          </div>
+          <div class="guide-step-body">
+            <div class="guide-step-name">Core Competencies &amp; Skills</div>
+            <div class="guide-step-desc">Audits keyword coverage against your target role, flags outdated or vague skills, checks for required credentials and certifications, and reorganizes by category.</div>
+          </div>
+        </div>
+        <div class="guide-step-card">
+          <div class="guide-step-badge">
+            <div class="guide-step-badge-num">3</div>
+          </div>
+          <div class="guide-step-body">
+            <div class="guide-step-name">Role Relevance Triage</div>
+            <div class="guide-step-desc">Evaluates every role in your history for relevance to the target position. Assigns each a treatment: Full Write, Condensed, Early Career Group, or Drop. Critical for long resumes spanning decades of experience.</div>
+          </div>
+        </div>
+        <div class="guide-step-card">
+          <div class="guide-step-badge">
+            <div class="guide-step-badge-num">4</div>
+          </div>
+          <div class="guide-step-body">
+            <div class="guide-step-name">Transferable Skills</div>
+            <div class="guide-step-desc">Identifies capabilities demonstrated in one context that apply to the target role but aren't currently framed as relevant. Especially valuable for career changers and non-linear histories.</div>
+          </div>
+        </div>
+        <div class="guide-step-card">
+          <div class="guide-step-badge">
+            <div class="guide-step-badge-num">5</div>
+          </div>
+          <div class="guide-step-body">
+            <div class="guide-step-name">Professional Summary</div>
+            <div class="guide-step-desc">Rewrites your summary informed by the skills gap analysis, triage decisions, and transferable skills — so it leads with the right credentials, uses relevant keywords, and cuts generic filler.</div>
+          </div>
+        </div>
+        <div class="guide-step-card">
+          <div class="guide-step-badge">
+            <div class="guide-step-badge-num">6</div>
+          </div>
+          <div class="guide-step-body">
+            <div class="guide-step-name">Experience &amp; Accomplishments</div>
+            <div class="guide-step-desc">Rewrites job entries based on triage decisions. Full Write roles get 3–5 impact bullets. Condensed roles get 1–2 lines. Old irrelevant roles are grouped or dropped. Includes a three-tier achievement quality audit (task-level → outcome-level → impact-level) with targeted questions to help you find missing metrics.</div>
+          </div>
+        </div>
+        <div class="guide-step-card">
+          <div class="guide-step-badge">
+            <div class="guide-step-badge-num">7</div>
+          </div>
+          <div class="guide-step-body">
+            <div class="guide-step-name">Supporting Sections</div>
+            <div class="guide-step-desc">Reviews Education, Certifications, Projects, Publications, Awards, Language Skills, and Patents for completeness and relevance. CV mode gives full treatment to academic credentials. Includes citation format guidance for publications (APA/MLA/Chicago by field), language proficiency level standards (Native through Intermediate), and patent formatting (title, number, authority, year).</div>
+          </div>
+        </div>
+        <div class="guide-step-card">
+          <div class="guide-step-badge">
+            <div class="guide-step-badge-num">8</div>
+          </div>
+          <div class="guide-step-body">
+            <div class="guide-step-name">Career Narrative &amp; Progression</div>
+            <div class="guide-step-desc">Evaluates whether your career arc tells a coherent story: trajectory, gaps, short tenures, pivots, and whether the progression logically leads to your target role. Includes a red flag check for anything that might raise a recruiter's eyebrow — with specific language to address each issue on the document.</div>
+          </div>
+        </div>
+        <div class="guide-step-card">
+          <div class="guide-step-badge">
+            <div class="guide-step-badge-num">9</div>
+          </div>
+          <div class="guide-step-body">
+            <div class="guide-step-name">Format, Structure &amp; ATS</div>
+            <div class="guide-step-desc">Evaluates section ordering, date consistency, bullet length, page count, and ATS danger zones like tables, columns, headers/footers, and graphics. Issues here can cause a resume to be silently rejected before a human ever reads it.</div>
+          </div>
+        </div>
+        <div class="guide-step-card optional">
+          <div class="guide-step-badge">
+            <div class="guide-step-badge-num">10</div>
+          </div>
+          <div class="guide-step-body">
+            <div class="guide-step-name">Tailoring &amp; Keyword Alignment<span class="guide-step-tag tag-optional">Optional</span></div>
+            <div class="guide-step-desc">Maps your resume against the job description, scores the match 1–10, identifies genuine keyword gaps, and recommends specific language substitutions — without keyword stuffing. Any keyword that can't be authentically backed up in an interview is flagged as a genuine gap, not inserted anyway.</div>
+          </div>
+        </div>
+        <div class="guide-step-card optional">
+          <div class="guide-step-badge">
+            <div class="guide-step-badge-num">11</div>
+          </div>
+          <div class="guide-step-body">
+            <div class="guide-step-name">Company Research<span class="guide-step-tag tag-optional">Optional</span></div>
+            <div class="guide-step-desc">Searches the web in real time for the target company's mission, tech stack, culture, and recent news — then produces resume alignment tips and cover letter hooks specific to that employer. Requires a company name. In LM Studio mode, also requires a web search plugin; skips gracefully if unavailable.</div>
+          </div>
+        </div>
+        <div class="guide-step-card">
+          <div class="guide-step-badge">
+            <div class="guide-step-badge-num">12</div>
+          </div>
+          <div class="guide-step-body">
+            <div class="guide-step-name">Level &amp; Compensation Signals</div>
+            <div class="guide-step-desc">Evaluates whether your resume projects the right seniority level for the target role by auditing title signals, scope indicators (team size, budget owned), accomplishment scale, and language framing. Also assesses whether the document positions you to negotiate at the top of the compensation range.</div>
+          </div>
+        </div>
+        <div class="guide-step-card">
+          <div class="guide-step-badge">
+            <div class="guide-step-badge-num">13</div>
+          </div>
+          <div class="guide-step-body">
+            <div class="guide-step-name">Consistency &amp; Voice Audit</div>
+            <div class="guide-step-desc">Reads all prior rewritten sections holistically — not the original resume — to check that the same professional persona, tone, and positioning comes through consistently. Also checks that the career narrative framing is reflected across all sections.</div>
+          </div>
+        </div>
+        <div class="guide-step-card">
+          <div class="guide-step-badge">
+            <div class="guide-step-badge-num">14</div>
+          </div>
+          <div class="guide-step-body">
+            <div class="guide-step-name">Fix Reconciliation<span class="guide-step-tag tag-system">System</span></div>
+            <div class="guide-step-desc">Reads all 13 analysis outputs and compiles every recommended change into a single numbered checklist, categorized by type (Content Rewrite, Keyword Add, Framing Adjust, Structural Fix, Addition, Removal). Ensures nothing gets lost when the final document is built.</div>
+          </div>
+        </div>
+        <div class="guide-step-card">
+          <div class="guide-step-badge">
+            <div class="guide-step-badge-num">15</div>
+          </div>
+          <div class="guide-step-body">
+            <div class="guide-step-name">Build Document<span class="guide-step-tag tag-system">System</span></div>
+            <div class="guide-step-desc">Applies every checklist item to produce the final Resume or CV. Uses rewrite-source steps as content and applies recommendations from analysis steps. Followed by a Compliance Notes section listing any checklist items that could not be applied, and a Digital Presence Note.</div>
+          </div>
+        </div>
+        </div>
+      </div>
+
+      <div style="margin-bottom:24px;padding-top:20px;border-top:1px solid var(--border);">
+        <div class="guide-section-title">After the Analysis — Review, Revise &amp; LinkedIn</div>
+        <div class="guide-steps-grid">
+        <div class="guide-step-card">
+          <div class="guide-step-badge">
+            <div class="guide-step-badge-num"
+              style="font-size:14px;">→</div>
+          </div>
+          <div class="guide-step-body">
+            <div class="guide-step-name">Review &amp; Edit<span class="guide-step-tag tag-system">After Analysis</span></div>
+            <div class="guide-step-desc">After the document is built, it opens in a live editable panel with two tabs: Full Document and 1-Page Version. Read through every section carefully — especially dates, metrics, job titles, and technical claims. Make direct edits to the text at any time.</div>
+          </div>
+        </div>
+        <div class="guide-step-card">
+          <div class="guide-step-badge">
+            <div class="guide-step-badge-num"
+              style="font-size:14px;">→</div>
+          </div>
+          <div class="guide-step-body">
+            <div class="guide-step-name">Apply Feedback<span class="guide-step-tag tag-system">After Analysis</span></div>
+            <div class="guide-step-desc">Describe what you want changed in plain language — for example, 'make the summary shorter', 'the 2019 title is wrong', 'add my PMP certification'. The AI revises only what you requested, preserves everything else, and never changes the factual context of any role. Repeat as many times as needed. Each revision is versioned so you can see how many passes you've made.</div>
+          </div>
+        </div>
+        <div class="guide-step-card">
+          <div class="guide-step-badge">
+            <div class="guide-step-badge-num"
+              style="font-size:14px;">→</div>
+          </div>
+          <div class="guide-step-body">
+            <div class="guide-step-name">Approve<span class="guide-step-tag tag-system">After Analysis</span></div>
+            <div class="guide-step-desc">When the document is ready, click Approve. This locks the document for download and reveals the LinkedIn Profile Generator. You can unapprove and return to editing at any time.</div>
+          </div>
+        </div>
+        <div class="guide-step-card optional">
+          <div class="guide-step-badge">
+            <div class="guide-step-badge-num opt"
+              style="font-size:14px;">✦</div>
+          </div>
+          <div class="guide-step-body">
+            <div class="guide-step-name">Generate LinkedIn Content<span class="guide-step-tag tag-optional">After Approval</span></div>
+            <div class="guide-step-desc">Generates six LinkedIn sections: Headline (3 variations), About (first person, 150–200 words, ends with CTA), Experience (all roles, narrative tone, no triage), Skills list (30–50 keywords by category), Featured section recommendations, and Profile Settings &amp; Recommendations (Open to Work configuration + three recommendation request templates). Each section has its own Copy button.</div>
+          </div>
+        </div>
+        </div>
+        <div class="guide-step-card optional">
+          <div class="guide-step-badge">
+            <div class="guide-step-badge-num opt" style="font-size:14px;">✉</div>
+          </div>
+          <div class="guide-step-body">
+            <div class="guide-step-name">Cover Letter Generator<span class="guide-step-tag tag-optional">After Approval</span></div>
+            <div class="guide-step-desc">Generates a personalized 300–400 word cover letter. Company-aware when Company Research ran. Four-paragraph structure: opening hook, strongest evidence with metric, secondary strength plus company reference, confident close. First person, specific, never repeats the full resume. Add the hiring manager's name before sending.</div>
+          </div>
+        </div>
+        <div class="guide-step-card optional">
+          <div class="guide-step-badge">
+            <div class="guide-step-badge-num opt" style="font-size:14px;">◈</div>
+          </div>
+          <div class="guide-step-body">
+            <div class="guide-step-name">Interview Prep &amp; STAR Stories<span class="guide-step-tag tag-optional">After Approval</span></div>
+            <div class="guide-step-desc">Three-part package: (1) 12–15 likely interview questions across four categories with an explanation of what each is testing. (2) 5–6 STAR stories from your strongest achievements with Situation, Task, Action, Result, and guidance on which questions each answers. (3) Salary negotiation — positioning statement, leverage points, timing guidance, counter-offer language, and beyond-base negotiables.</div>
+          </div>
+        </div>
+        <div class="guide-step-card optional">
+          <div class="guide-step-badge">
+            <div class="guide-step-badge-num opt" style="font-size:14px;">@</div>
+          </div>
+          <div class="guide-step-body">
+            <div class="guide-step-name">Email Templates<span class="guide-step-tag tag-optional">After Approval</span></div>
+            <div class="guide-step-desc">Three post-interview templates: same-day thank-you note (warm, genuine, under 150 words), follow-up email after 7–10 days of silence (confident, not desperate, under 100 words), and a LinkedIn connection request to the interviewer (personal, not a pitch, under 250 characters). Fill in specific details before sending.</div>
+          </div>
+        </div>
+        <div class="guide-step-card optional">
+          <div class="guide-step-badge">
+            <div class="guide-step-badge-num opt" style="font-size:14px;">⊡</div>
+          </div>
+          <div class="guide-step-body">
+            <div class="guide-step-name">1-Page Resume Variant<span class="guide-step-tag tag-optional">In Editor</span></div>
+            <div class="guide-step-desc">Available any time in the editor — Resume mode only. Generates an aggressively trimmed single-page version: most recent 10 years, 2–3 bullets per role, essential sections only. Opens in the 1-Page Version tab alongside the full document. Not available for CVs — a 1-page CV defeats its purpose.</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-bottom:24px;padding-top:20px;border-top:1px solid var(--border);">
+        <div class="guide-section-title">What to Fill In</div>
+        <div class="guide-steps-grid">
+        <div class="guide-step-card">
+          <div class="guide-step-badge">
+            <div class="guide-step-badge-num" style="background:#1a2a0a;border-color:#3a5a1a;color:#86efac;font-size:13px;">✓</div>
+          </div>
+          <div class="guide-step-body">
+            <div class="guide-step-name">Document type</div>
+            <div class="guide-step-desc">Choose Resume (1–2 pages, role-targeted) or Full CV (comprehensive, no length limit) before uploading. If you're unsure, click the "Not sure which to choose?" link below the selector buttons — it explains both formats and when each is appropriate. This choice affects every step: triage rules, experience depth, skills breadth, page limits, supporting section treatment, and the compiled output.</div>
+          </div>
+        </div>
+        <div class="guide-step-card">
+          <div class="guide-step-badge">
+            <div class="guide-step-badge-num" style="background:#1a2a0a;border-color:#3a5a1a;color:#86efac;font-size:13px;">✓</div>
+          </div>
+          <div class="guide-step-body">
+            <div class="guide-step-name">Industry &amp; Target Role</div>
+            <div class="guide-step-desc">Used by every step to calibrate language, keywords, and relevance decisions. Be specific — 'Purchasing Agent' and 'Industrial Manufacturing' produces far more targeted output than 'Operations' and 'Manufacturing'.</div>
+          </div>
+        </div>
+        <div class="guide-step-card">
+          <div class="guide-step-badge">
+            <div class="guide-step-badge-num" style="background:#1a2a0a;border-color:#3a5a1a;color:#86efac;font-size:13px;">✓</div>
+          </div>
+          <div class="guide-step-body">
+            <div class="guide-step-name">Job Description</div>
+            <div class="guide-step-desc">Paste the full posting to unlock Step 10 (Tailoring &amp; Keyword Alignment). When present, every other step also aligns to the JD's language, keywords, and priorities.</div>
+          </div>
+        </div>
+        <div class="guide-step-card">
+          <div class="guide-step-badge">
+            <div class="guide-step-badge-num" style="background:#1a2a0a;border-color:#3a5a1a;color:#86efac;font-size:13px;">✓</div>
+          </div>
+          <div class="guide-step-body">
+            <div class="guide-step-name">Company Name</div>
+            <div class="guide-step-desc">Unlocks Step 11 (Company Research). The AI searches the web in real time — use the company's exact public name for best results. Company research also feeds into the Cover Letter Generator (personalizing the employer references) and the Interview Prep (company-specific questions and talking points).</div>
+          </div>
+        </div>
+        <div class="guide-step-card">
+          <div class="guide-step-badge">
+            <div class="guide-step-badge-num" style="background:#1a2a0a;border-color:#3a5a1a;color:#86efac;font-size:13px;">✓</div>
+          </div>
+          <div class="guide-step-body">
+            <div class="guide-step-name">Your File</div>
+            <div class="guide-step-desc">PDF or Word document (.pdf, .docx). Text is extracted automatically in the browser before anything is sent to the AI. Use the 'Preview extracted text' toggle to verify the extraction looks clean before running — especially important for complex PDFs.</div>
+          </div>
+        </div>
+        <div class="guide-step-card">
+          <div class="guide-step-badge">
+            <div class="guide-step-badge-num" style="background:#1a2a0a;border-color:#3a5a1a;color:#86efac;font-size:13px;">✓</div>
+          </div>
+          <div class="guide-step-body">
+            <div class="guide-step-name">Mode</div>
+            <div class="guide-step-desc">Claude (default) or LM Studio (local model). LM Studio requires a running server with a 16K+ context window model — 13B+ parameters recommended. The Reconcile and Compile steps send large inputs. Company Research requires a web search plugin in LM Studio; skips gracefully without one.</div>
+          </div>
+        </div>
+        </div>
+      </div>
+
+      <div class="guide-tips">
+        <div class="guide-tip">
+          <div class="guide-tip-icon">⏱</div>
+          <div class="guide-tip-title">Expect 5–10 minutes</div>
+          <div class="guide-tip-text">Each step is a separate API call. A full run with all 15 steps typically takes 5–10 minutes. Company Research (Step 11) takes longest due to live web searching.</div>
+        </div>
+        <div class="guide-tip">
+          <div class="guide-tip-icon">📄</div>
+          <div class="guide-tip-title">File quality matters</div>
+          <div class="guide-tip-text">Text-based PDFs extract cleanly. Scanned, image-based, or heavily designed files (columns, tables, graphics) may extract poorly. Use a plain Word doc or a standard-format PDF for best results. Always check the extraction preview.</div>
+        </div>
+        <div class="guide-tip">
+          <div class="guide-tip-icon">✏️</div>
+          <div class="guide-tip-title">Review before approving</div>
+          <div class="guide-tip-text">The AI rewrites are strong but not infallible. Check every date, metric, job title, and technical claim before approving. You can edit directly or describe changes in plain language — as many passes as you need.</div>
+        </div>
+        <div class="guide-tip">
+          <div class="guide-tip-icon">🔒</div>
+          <div class="guide-tip-title">Authenticity is enforced</div>
+          <div class="guide-tip-text">The AI will never change the industry context of a role (a retail job stays retail), never invent metrics, and never insert keywords you can't back up in an interview. Genuine gaps are flagged, not papered over.</div>
+        </div>
+        <div class="guide-tip">
+          <div class="guide-tip-icon">💾</div>
+          <div class="guide-tip-title">Save as you go</div>
+          <div class="guide-tip-text">Use the Copy buttons on each analysis section, the document editor, and each generator output to grab what you need. Nothing is saved between sessions — copy everything before closing the tab.</div>
+        </div>
+        <div class="guide-tip">
+          <div class="guide-tip-icon">📋</div>
+          <div class="guide-tip-title">Resume vs CV</div>
+          <div class="guide-tip-text">A resume is 1–2 pages, tailored per application, standard for most US/UK private sector jobs. A CV is comprehensive, has no page limit, and is standard in academia, medicine, research, and international hiring. Click "Not sure which to choose?" below the selector buttons for full guidance.</div>
+        </div>
+        <div class="guide-tip">
+          <div class="guide-tip-icon">🔁</div>
+          <div class="guide-tip-title">Re-run any time</div>
+          <div class="guide-tip-text">Change the target role, swap the job description, try a different company, then click Analyze again. Each run is fully independent. Use the New Resume button to start fresh with a different file.</div>
+        </div>
+      </div>
+
+      <div class="guide-dismiss">
+        <button onclick="dismissGuide()">Got it — collapse this</button>
+      </div>
+    </div>
+  </div>
+  </div>
+
+  <!-- Doc type -->
+  <div class="doc-type-row">
+    <button class="doc-type-btn active" data-type="resume" onclick="setDocType('resume')">
+      <span class="dt-icon">📄</span>
+      <span class="dt-name">Resume</span>
+      <span class="dt-desc">1–2 pages · Role-targeted · Prioritizes relevance over completeness</span>
+    </button>
+    <button class="doc-type-btn" data-type="cv" onclick="setDocType('cv')">
+      <span class="dt-icon">📋</span>
+      <span class="dt-name">Full CV</span>
+      <span class="dt-desc">Complete record · All roles, publications, credentials · No length limit</span>
+    </button>
+  </div>
+  <button class="doc-explain-toggle" onclick="toggleDocExplain(this)">▾ Not sure which to choose? See what each is and when to use it</button>
+
+  <div id="doc-explain-panel">
+    <div class="doc-explain-grid">
+      <div class="doc-explain-col" style="background:var(--bg);">
+        <div class="doc-explain-label resume-color">📄 Resume</div>
+        <ul class="doc-explain-list">
+          <li>1–2 pages maximum — ruthlessly focused on relevance</li>
+          <li>Tailored to a specific job posting or role type</li>
+          <li>Older or less relevant roles condensed or removed</li>
+          <li>Summary is 3–5 lines of tight positioning</li>
+          <li>Skills limited to the 10–15 most relevant keywords</li>
+          <li>Supporting sections included only if they serve the role</li>
+          <li>Publications, patents, and research rarely included</li>
+          <li>Standard in most private sector hiring in the US and UK</li>
+        </ul>
+      </div>
+      <div class="doc-explain-col" style="background:var(--bg);">
+        <div class="doc-explain-label cv-color">📋 Full CV (Curriculum Vitae)</div>
+        <ul class="doc-explain-list">
+          <li>No page limit — completeness over conciseness</li>
+          <li>A permanent, comprehensive record of your entire career</li>
+          <li>Every role included regardless of age or relevance</li>
+          <li>Publications, presentations, research, and grants get full treatment</li>
+          <li>Broader skills section including research methods and academic competencies</li>
+          <li>Education section typically near the top (not buried below experience)</li>
+          <li>Standard in academia, research, medicine, and international hiring</li>
+          <li>A single CV is updated over time, not rewritten per application</li>
+        </ul>
+      </div>
+    </div>
+    <div class="doc-explain-when">
+      <strong>Use a Resume when:</strong> applying for most private sector jobs in the US, Canada, or UK — corporate, tech, finance, retail, manufacturing, non-profit, government. If the job posting doesn't specify, a resume is almost always correct.<br><br>
+      <strong>Use a CV when:</strong> applying for academic positions (professor, researcher, postdoc), medical or clinical roles that require a full credentials record, research-focused roles at universities or institutes, international positions (CVs are standard in most of Europe, Asia, Africa, and the Middle East), or any role that specifically asks for a CV or curriculum vitae.<br><br>
+      <strong>Not sure?</strong> If you're in the US and applying to a non-academic employer, choose Resume. If you have extensive publications, research experience, or are applying internationally or in academia, choose CV.
+    </div>
+  </div>
+
+  <!-- Context -->
+  <div class="setup-grid" style="grid-template-columns:1fr 1fr 1fr;">
+    <div class="field">
+      <label>Industry</label>
+      <input id="ctx-industry" type="text" placeholder="e.g. Healthcare, SaaS, Manufacturing" />
+    </div>
+    <div class="field">
+      <label>Target Role</label>
+      <input id="ctx-role" type="text" placeholder="e.g. Product Manager, Staff Engineer" />
+    </div>
+    <div class="field">
+      <label>Company Name <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--subtle)">(optional)</span></label>
+      <input id="ctx-company" type="text" placeholder="e.g. Acme Corp, Stripe, Mayo Clinic" />
+    </div>
+  </div>
+
+  <!-- LM Studio URL -->
+  <div id="lm-url-row">
+    <div class="field">
+      <label>LM Studio URL</label>
+      <input id="lm-url" type="text" value="http://localhost:1234" />
+    </div>
+  </div>
+
+  <!-- Job description -->
+  <div class="jd-wrap">
+    <div class="jd-label">
+      <span>Job Description <span class="jd-optional">(optional — enables Step 10: Tailoring &amp; Keyword Alignment)</span></span>
+    </div>
+    <textarea id="jd-input" placeholder="Paste the full job description here. When provided, every step aligns to this posting — keywords, impact language, skills prioritization, and the final document."></textarea>
+  </div>
+
+  <!-- Drop zone -->
+  <div class="drop-zone" id="drop-zone" onclick="triggerPick()">
+    <input type="file" id="file-input" accept=".pdf,.doc,.docx" />
+    <div class="drop-empty">
+      <div class="drop-icon">⬆</div>
+      <div class="drop-title">Drop your resume or CV here</div>
+      <div class="drop-sub">PDF or Word document (.pdf, .doc, .docx) · Click to browse</div>
+    </div>
+    <div class="file-info">
+      <div class="file-icon" id="file-type-icon">📄</div>
+      <div class="file-meta">
+        <div class="file-name" id="file-name-display"></div>
+        <div class="file-size" id="file-size-display"></div>
+        <div class="file-status" id="file-status"></div>
+      </div>
+      <button class="file-remove" onclick="removeFile(event)">✕ Remove</button>
+    </div>
+  </div>
+
+  <div id="extract-preview-wrap">
+    <button id="extract-preview-toggle" onclick="toggleExtractPreview(this)">▾ Preview extracted text — verify before running</button>
+    <div id="extract-preview-body" id="extract-preview-text"></div>
+  </div>
+
+  <button id="run-btn" disabled onclick="handleRun()">Analyze Resume</button>
+
+  <div id="error-box"></div>
+
+  <div id="progress-wrap">
+    <div class="progress-header">
+      <span class="progress-label" id="progress-label">Running analysis…</span>
+      <span id="progress-pct">0%</span>
+    </div>
+    <div class="progress-bar-track"><div class="progress-bar-fill" id="progress-bar"></div></div>
+    <div class="step-indicators" id="step-indicators"></div>
+  </div>
+
+  <div id="results-wrap">
+    <div class="results-header">
+      <div class="results-title" id="results-title">Analysis Complete</div>
+      <div class="results-actions">
+        <button class="btn-ghost" onclick="expandAll()">Expand All</button>
+        <button class="btn-ghost" onclick="collapseAll()">Collapse All</button>
+        <button class="btn-ghost" onclick="copyAll()">Copy All</button>
+        <button class="btn-pdf" onclick="downloadPdf()">⬇ Download PDF</button>
+        <button class="btn-ghost" onclick="resetAll()">New Resume</button>
+      </div>
+    </div>
+    <div id="results-container"></div>
+    <div id="pdf-output-section" style="display:none;"><!-- legacy compat --></div>
+  </div>
+
+  <!-- Review / Revision / Approval -->
+  <div id="review-section">
+    <div class="review-header">
+      <div class="review-header-left">
+        <div class="review-title" id="review-title">Generated Document — Ready for Review</div>
+        <div class="review-subtitle">Edit directly or describe changes below · Approve when ready to unlock all generators</div>
+      </div>
+      <div class="review-header-right">
+        <button class="btn-ghost" onclick="downloadPdf()">⬇ Download PDF</button>
+        <button class="btn-ghost" onclick="copyDocument()">Copy</button>
+        <span class="revision-counter" id="revision-counter">Version 1</span>
+        <button class="btn-approve" id="approve-btn" onclick="toggleApprove()">✓ Approve &amp; Unlock Generators</button>
+      </div>
+    </div>
+    <div class="editor-tabs">
+      <button class="editor-tab active" id="tab-full" onclick="switchEditorTab('full')">Full Document</button>
+      <button class="editor-tab" id="tab-1page" onclick="switchEditorTab('1page')">1-Page Version</button>
+      <div class="editor-tab-actions">
+        <span class="onepage-spinner" id="onepage-spinner"><div class="spin-ring" style="width:12px;height:12px;"></div> Generating…</span>
+        <button class="btn-generate-1page" id="generate-1page-btn" onclick="generateOnePage()" title="Generate an aggressively trimmed 1-page version (Resume only — not appropriate for CVs)">⊡ Generate 1-Page</button>
+      </div>
+    </div>
+    <textarea id="doc-editor" spellcheck="true" placeholder="Your document will appear here after analysis completes…"></textarea>
+    <textarea id="doc-editor-1page" spellcheck="true" placeholder="Click 'Generate 1-Page' to create a trimmed single-page version from your full document…" style="display:none;"></textarea>
+    <div class="revision-spinner" id="revision-spinner">
+      <div class="spin-ring"></div>
+      <span id="revision-label">Applying feedback…</span>
+    </div>
+    <div class="feedback-row" id="feedback-row">
+      <textarea id="feedback-input" rows="1" placeholder="Describe what to change… e.g. 'make the summary shorter', 'the 2019 role title is wrong', 'add my PMP certification'" oninput="autoResize(this)"></textarea>
+      <button class="btn-apply-feedback" id="apply-feedback-btn" onclick="applyFeedback()">Apply Feedback</button>
+    </div>
+    <div class="feedback-note" id="feedback-note">
+      Tip: Review every section carefully before approving — especially dates, metrics, and technical claims. You know your experience better than any AI.
+    </div>
+  </div>
+
+  <!-- Cover letter hooks & company research output -->
+  <div class="pdf-section" id="cover-letter-section" style="display:none;margin-top:16px;">
+    <div class="pdf-section-head">
+      <div>
+        <div class="pdf-section-title">Company Research &amp; Cover Letter Hooks</div>
+        <div class="pdf-section-desc">Part 1: Resume alignment recommendations &middot; Part 2: Cover letter hooks &amp; interview talking points</div>
+      </div>
+      <button class="btn-ghost" onclick="copyCompanyResearch(event)">Copy</button>
+    </div>
+    <div class="pdf-preview" id="cover-letter-preview"></div>
+  </div>
+
+  <!-- LinkedIn Profile Generator -->
+  <div id="linkedin-section">
+    <div class="linkedin-header">
+      <div>
+        <div class="linkedin-header-title">LinkedIn Profile Generator</div>
+        <div class="linkedin-header-desc">Generates all LinkedIn sections from your approved document · Tuned for general audience and discoverability</div>
+      </div>
+      <button class="btn-generate-linkedin" id="generate-linkedin-btn" onclick="generateLinkedIn()">Generate LinkedIn Content</button>
+    </div>
+    <div class="linkedin-disclaimer">
+      LinkedIn content is derived from your approved document. Review all sections before pasting — LinkedIn is a general audience platform so language is conversational and first-person, unlike the resume.
+    </div>
+    <div id="linkedin-progress">
+      <div class="spin-ring"></div>
+      <span id="linkedin-progress-label">Generating LinkedIn sections…</span>
+    </div>
+    <div id="linkedin-output">
+      <div class="linkedin-subsection" id="li-sec-headline">
+        <div class="linkedin-sub-head" onclick="toggleLinkedInSection('headline')">
+          <div><div class="linkedin-sub-name">Headline</div><div class="linkedin-sub-desc">3 variations · 220 chars · no buzzwords · for general audience</div></div>
+          <div style="display:flex;gap:8px;align-items:center;"><button class="section-copy" onclick="copyLinkedInSection(event,'headline')">Copy</button><span class="chevron">▾</span></div>
+        </div>
+        <div class="linkedin-sub-body" id="li-body-headline"></div>
+      </div>
+      <div class="linkedin-subsection" id="li-sec-about">
+        <div class="linkedin-sub-head" onclick="toggleLinkedInSection('about')">
+          <div><div class="linkedin-sub-name">About Section</div><div class="linkedin-sub-desc">First person · 150–200 words · conversational · ends with CTA</div></div>
+          <div style="display:flex;gap:8px;align-items:center;"><button class="section-copy" onclick="copyLinkedInSection(event,'about')">Copy</button><span class="chevron">▾</span></div>
+        </div>
+        <div class="linkedin-sub-body" id="li-body-about"></div>
+      </div>
+      <div class="linkedin-subsection" id="li-sec-experience">
+        <div class="linkedin-sub-head" onclick="toggleLinkedInSection('experience')">
+          <div><div class="linkedin-sub-name">Experience Entries</div><div class="linkedin-sub-desc">All roles · LinkedIn style · slightly narrative · full history shown</div></div>
+          <div style="display:flex;gap:8px;align-items:center;"><button class="section-copy" onclick="copyLinkedInSection(event,'experience')">Copy</button><span class="chevron">▾</span></div>
+        </div>
+        <div class="linkedin-sub-body" id="li-body-experience"></div>
+      </div>
+      <div class="linkedin-subsection" id="li-sec-skills">
+        <div class="linkedin-sub-head" onclick="toggleLinkedInSection('skills')">
+          <div><div class="linkedin-sub-name">Skills List</div><div class="linkedin-sub-desc">Up to 50 · endorsement-optimized · search-discoverable</div></div>
+          <div style="display:flex;gap:8px;align-items:center;"><button class="section-copy" onclick="copyLinkedInSection(event,'skills')">Copy</button><span class="chevron">▾</span></div>
+        </div>
+        <div class="linkedin-sub-body" id="li-body-skills"></div>
+      </div>
+      <div class="linkedin-subsection" id="li-sec-featured">
+        <div class="linkedin-sub-head" onclick="toggleLinkedInSection('featured')">
+          <div><div class="linkedin-sub-name">Featured Section Recommendations</div><div class="linkedin-sub-desc">What to pin · why · how to frame it</div></div>
+          <div style="display:flex;gap:8px;align-items:center;"><button class="section-copy" onclick="copyLinkedInSection(event,'featured')">Copy</button><span class="chevron">▾</span></div>
+        </div>
+        <div class="linkedin-sub-body" id="li-body-featured"></div>
+      </div>
+      <div class="linkedin-subsection" id="li-sec-settings">
+        <div class="linkedin-sub-head" onclick="toggleLinkedInSection('settings')">
+          <div><div class="linkedin-sub-name">Profile Settings &amp; Recommendations Request</div><div class="linkedin-sub-desc">Open to work settings · recommendation templates · next steps</div></div>
+          <div style="display:flex;gap:8px;align-items:center;"><button class="section-copy" onclick="copyLinkedInSection(event,'settings')">Copy</button><span class="chevron">▾</span></div>
+        </div>
+        <div class="linkedin-sub-body" id="li-body-settings"></div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- Email Templates -->
+  <div id="email-section" class="tool-section">
+    <div class="tool-header">
+      <div>
+        <div class="tool-header-title">Email Templates</div>
+        <div class="tool-header-desc">Thank-you note · Follow-up email · LinkedIn connection request to interviewer</div>
+      </div>
+      <div class="tool-actions">
+        <button class="btn-tool" id="generate-email-btn" onclick="generateEmailTemplates()">Generate Email Templates</button>
+      </div>
+    </div>
+    <div class="tool-disclaimer">
+      Fill in the interviewer's name, specific things you discussed, and any personal details before sending. Generic thank-you notes are easy to spot.
+    </div>
+    <div class="tool-spinner" id="email-spinner">
+      <div class="spin-ring"></div>
+      <span>Generating email templates…</span>
+    </div>
+    <div class="tool-output" id="email-output">
+      <div class="tool-subsection">
+        <div class="tool-sub-head" onclick="toggleToolSection('email-body-thankyou')">
+          <div><div class="tool-sub-name">Same-Day Thank-You Note</div><div class="tool-sub-desc">Send within 2 hours · personalized · references the conversation</div></div>
+          <div style="display:flex;gap:8px;align-items:center;"><button class="section-copy" onclick="copyToolSection(event,'email-body-thankyou')">Copy</button><span class="chevron">▾</span></div>
+        </div>
+        <div class="tool-sub-body" id="email-body-thankyou"></div>
+      </div>
+      <div class="tool-subsection">
+        <div class="tool-sub-head" onclick="toggleToolSection('email-body-followup')">
+          <div><div class="tool-sub-name">Follow-Up Email</div><div class="tool-sub-desc">Send after 7–10 days of silence · professional · not desperate</div></div>
+          <div style="display:flex;gap:8px;align-items:center;"><button class="section-copy" onclick="copyToolSection(event,'email-body-followup')">Copy</button><span class="chevron">▾</span></div>
+        </div>
+        <div class="tool-sub-body" id="email-body-followup"></div>
+      </div>
+      <div class="tool-subsection">
+        <div class="tool-sub-head" onclick="toggleToolSection('email-body-linkedin')">
+          <div><div class="tool-sub-name">LinkedIn Connection Request</div><div class="tool-sub-desc">Short · personal · not a follow-up pitch</div></div>
+          <div style="display:flex;gap:8px;align-items:center;"><button class="section-copy" onclick="copyToolSection(event,'email-body-linkedin')">Copy</button><span class="chevron">▾</span></div>
+        </div>
+        <div class="tool-sub-body" id="email-body-linkedin"></div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- Cover Letter Generator -->
+  <div id="cover-letter-gen-section" class="tool-section">
+    <div class="tool-header">
+      <div>
+        <div class="tool-header-title">Cover Letter Generator</div>
+        <div class="tool-header-desc">Personalized cover letter from your approved document · Company-aware when research was run</div>
+      </div>
+      <div class="tool-actions">
+        <button class="btn-tool" id="generate-cl-btn" onclick="generateCoverLetter()">Generate Cover Letter</button>
+      </div>
+    </div>
+    <div class="tool-disclaimer">
+      Review before sending — add the hiring manager's name, specific role reference, and any personal connection you have to the company. The AI cannot know what you know.
+    </div>
+    <div class="tool-spinner" id="cl-spinner">
+      <div class="spin-ring"></div>
+      <span>Generating cover letter…</span>
+    </div>
+    <div class="tool-output" id="cl-output">
+      <div class="tool-subsection">
+        <div class="tool-sub-head" onclick="toggleToolSection('cl-body')">
+          <div><div class="tool-sub-name">Cover Letter</div><div class="tool-sub-desc">Personalized · company-aware · ready to customize</div></div>
+          <div style="display:flex;gap:8px;align-items:center;"><button class="section-copy" onclick="copyToolSection(event,'cl-body')">Copy</button><span class="chevron">▾</span></div>
+        </div>
+        <div class="tool-sub-body" id="cl-body"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Interview Prep + STAR Stories -->
+  <div id="interview-section" class="tool-section">
+    <div class="tool-header">
+      <div>
+        <div class="tool-header-title">Interview Prep &amp; STAR Stories</div>
+        <div class="tool-header-desc">Likely questions for your role · STAR stories from your resume · Salary negotiation positioning</div>
+      </div>
+      <div class="tool-actions">
+        <button class="btn-tool" id="generate-interview-btn" onclick="generateInterviewPrep()">Generate Interview Prep</button>
+      </div>
+    </div>
+    <div class="tool-disclaimer">
+      Questions are predictions based on role and industry patterns — not guarantees. Practice your answers out loud. The STAR stories are starting points; refine them with your own memory of what happened.
+    </div>
+    <div class="tool-spinner" id="interview-spinner">
+      <div class="spin-ring"></div>
+      <span>Generating interview prep…</span>
+    </div>
+    <div class="tool-output" id="interview-output">
+      <div class="tool-subsection" id="int-sec-questions">
+        <div class="tool-sub-head" onclick="toggleToolSection('int-body-questions')">
+          <div><div class="tool-sub-name">Likely Interview Questions</div><div class="tool-sub-desc">Role-specific · behavioral · technical · situational</div></div>
+          <div style="display:flex;gap:8px;align-items:center;"><button class="section-copy" onclick="copyToolSection(event,'int-body-questions')">Copy</button><span class="chevron">▾</span></div>
+        </div>
+        <div class="tool-sub-body" id="int-body-questions"></div>
+      </div>
+      <div class="tool-subsection" id="int-sec-star">
+        <div class="tool-sub-head" onclick="toggleToolSection('int-body-star')">
+          <div><div class="tool-sub-name">STAR Stories</div><div class="tool-sub-desc">Situation · Task · Action · Result — pulled from your resume</div></div>
+          <div style="display:flex;gap:8px;align-items:center;"><button class="section-copy" onclick="copyToolSection(event,'int-body-star')">Copy</button><span class="chevron">▾</span></div>
+        </div>
+        <div class="tool-sub-body" id="int-body-star"></div>
+      </div>
+      <div class="tool-subsection" id="int-sec-salary">
+        <div class="tool-sub-head" onclick="toggleToolSection('int-body-salary')">
+          <div><div class="tool-sub-name">Salary Negotiation</div><div class="tool-sub-desc">Positioning · talking points · what to say and when</div></div>
+          <div style="display:flex;gap:8px;align-items:center;"><button class="section-copy" onclick="copyToolSection(event,'int-body-salary')">Copy</button><span class="chevron">▾</span></div>
+        </div>
+        <div class="tool-sub-body" id="int-body-salary"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="pdf-print-area" style="display:none;">
+    <div class="pdf-document" id="pdf-document"></div>
+  </div>
+
+</div>
+<div id="copy-all-toast">Copied to clipboard</div>
+
+<script>
+
+// ══════════════════════════════════════════════════════
+// GUIDE PANEL
+// ══════════════════════════════════════════════════════
+function toggleGuide() {
+  const panel = document.getElementById('guide-panel');
+  panel.classList.toggle('collapsed');
+  localStorage.setItem('ra_guide_collapsed', panel.classList.contains('collapsed') ? '1' : '0');
+}
+
+function dismissGuide() {
+  const panel = document.getElementById('guide-panel');
+  panel.classList.add('collapsed');
+  localStorage.setItem('ra_guide_collapsed', '1');
+}
+
+// Restore collapsed state on load
+(function() {
+  if (localStorage.getItem('ra_guide_collapsed') === '1') {
+    document.getElementById('guide-panel').classList.add('collapsed');
+  }
+})();
+
+// ── PDF.js worker ──────────────────────────────────
+if (typeof pdfjsLib !== 'undefined') {
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+}
+
+// ══════════════════════════════════════════════════════
+// STEPS
+// ══════════════════════════════════════════════════════
+const STEPS = [
+  {
+    id: 'contact',
+    name: 'Contact & Header',
+    desc: 'Name, title line, contact info, links',
+    detail: {
+      what: 'Reviews the top section of your resume for completeness, professionalism, and ATS compatibility.',
+      how: 'Checks for a professional title line beneath your name, correct contact formatting, LinkedIn URL presence, location format (city/state is sufficient — never a full address), and whether the header is likely to survive ATS parsing.',
+      output: 'A list of specific issues found, followed by a rewritten header block ready to drop in.',
+    },
+  },
+  {
+    id: 'skills',
+    name: 'Core Competencies & Skills',
+    desc: 'ATS keyword coverage · organization · gaps',
+    detail: {
+      what: 'Audits your skills section for ATS keyword coverage, relevance to the target role, and organizational clarity.',
+      how: 'Most ATS systems scan the skills section first. This step checks whether the right technical and soft skills are present, flags skills that are too vague or outdated, identifies keywords from the target role that are missing, and recommends a clean organizational structure.',
+      output: 'A gap analysis of your current skills section plus a rewritten skills block organized by category.',
+    },
+  },
+  {
+    id: 'triage',
+    name: 'Role Relevance Triage',
+    desc: 'Keep · condense · drop · long resume strategy',
+    detail: {
+      what: 'Evaluates every role in your history for relevance to the target position and sets a strategy before any rewriting begins.',
+      how: 'For each role, the AI weighs recency, relevance to the target role, seniority signal, and whether the role adds something not already demonstrated by a more recent position. Roles beyond 15 years are assessed for whether they should be fully written, condensed to a single line, or grouped into an Early Career block.',
+      output: 'A triage table listing every role with a recommended treatment: Full Write, Condensed (1–2 lines), Early Career Group, or Drop. Includes rationale for each decision and a target page count for the final document.',
+    },
+  },
+  {
+    id: 'transfer',
+    name: 'Transferable Skills',
+    desc: 'Cross-domain value · career changers · hidden strengths',
+    detail: {
+      what: 'Identifies skills, experiences, and accomplishments that transfer to the target role but are not currently framed as relevant.',
+      how: 'Particularly important for career changers, industry pivots, or candidates with non-linear histories. Looks for functional skills (leadership, systems thinking, data analysis, stakeholder management) that appear in one context but apply directly to the target role, then recommends how to reframe them.',
+      output: 'A list of transferable skills found in the resume, the role context they come from, and specific language for reframing each one to resonate with the target position.',
+    },
+  },
+  {
+    id: 'summary',
+    name: 'Professional Summary',
+    desc: '3–5 lines · keyword-dense · role-targeted',
+    detail: {
+      what: 'Rewrites your professional summary to lead with your strongest positioning for the target role.',
+      how: 'A resume summary is shorter and more keyword-dense than a LinkedIn About section. It is written in third-person implied voice (no "I"), prioritizes the target role\'s language, and front-loads your most relevant credential or achievement. Generic phrases are eliminated.',
+      output: 'One rewritten professional summary of 3–5 lines, with a note on the strategic choices made.',
+    },
+  },
+  {
+    id: 'experience',
+    name: 'Experience & Accomplishments',
+    desc: 'Impact over tasks · metrics · achievement quality · verb strength',
+    detail: {
+      what: 'Rewrites every job entry to lead with accomplishments and quantified impact, then audits the quality tier of every achievement.',
+      how: 'Each role gets 3–5 rewritten bullets starting with strong past-tense action verbs. Metrics are added wherever the original content supports them — nothing is invented. A second pass then scores every bullet on a three-tier scale: task-level (weakest), outcome-level, or impact-level (strongest) — and flags which bullets need to be elevated and how.',
+      output: 'A fully rewritten experience section, plus an achievement quality audit showing the tier of each bullet and specific guidance for upgrading weak ones.',
+    },
+  },
+  {
+    id: 'supporting',
+    name: 'Supporting Sections',
+    desc: 'Education · certs · projects · publications',
+    detail: {
+      what: 'Reviews all sections below Experience — Education, Certifications, Projects, Publications, Awards, Volunteering — for completeness, formatting, and strategic value.',
+      how: 'For a Resume, this step trims anything that does not serve the target role and ensures high-value credentials are visible. For a CV, it expands these sections — Publications, Presentations, Research, and Affiliations are primary evaluation criteria and get full treatment.',
+      output: 'Specific feedback on each supporting section present, with rewrites or reorganization recommendations.',
+    },
+  },
+  {
+    id: 'narrative',
+    name: 'Career Narrative & Progression',
+    desc: 'Story arc · trajectory · gaps · pivots',
+    detail: {
+      what: 'Evaluates whether your career tells a coherent, compelling story to a recruiter doing a 6–10 second first pass.',
+      how: 'Looks at the full arc of the document: is there a clear upward or lateral trajectory with a logical reason behind it? Are employment gaps, short tenures, industry pivots, or title regressions explained or framed positively? Does the progression support the target role or work against it?',
+      output: 'An honest assessment of how your career story reads to an outside evaluator, with specific recommendations for framing gaps, pivots, and transitions — and suggested narrative language to add to the summary or experience entries.',
+    },
+  },
+  {
+    id: 'format',
+    name: 'Format, Structure & ATS',
+    desc: 'Scannability · section order · ATS safety',
+    detail: {
+      what: 'Evaluates the document holistically for formatting quality, logical flow, and ATS compatibility — independently of the content.',
+      how: 'Checks section ordering (Summary → Skills → Experience → Education is standard), consistency of date formats, appropriate use of white space, bullet length, page length relative to experience level, and ATS danger zones: tables, columns, text boxes, headers/footers, graphics, and non-standard fonts all break ATS parsing.',
+      output: 'A prioritized list of formatting and structural issues with specific fixes for each.',
+    },
+  },
+  {
+    id: 'tailoring',
+    name: 'Tailoring & Keyword Alignment',
+    desc: 'JD keyword match · language mirroring · relevance',
+    skipWithoutJD: true,
+    detail: {
+      what: 'Compares your resume directly against the job description to identify keyword gaps and alignment opportunities.',
+      how: 'Maps required and preferred qualifications from the JD against what appears in the resume. Identifies exact phrases, tools, and credentials the employer used that are missing or buried. Recommends specific language substitutions that mirror the JD without keyword stuffing.',
+      output: 'A keyword gap report, a match score with reasoning, and specific line-by-line substitution recommendations.',
+    },
+  },
+  {
+    id: 'company',
+    name: 'Company Research',
+    desc: 'Mission · culture · tech stack · hiring signals',
+    skipWithoutCompany: true,
+    detail: {
+      what: 'Researches the target company and identifies how to align the resume language and framing to what that specific employer values.',
+      how: 'Uses web search to pull current information about the company — mission and values language, known tech stack or methodologies, recent news, growth priorities, and cultural signals from job postings and press. This intelligence is then mapped against the resume to find alignment opportunities.',
+      output: 'Two deliverables: (1) Resume alignment recommendations — specific language, framing, and emphasis changes. (2) Cover letter hooks and interview talking points tailored to this company that the candidate can use beyond the document itself.',
+    },
+  },
+  {
+    id: 'levelsignal',
+    name: 'Level & Compensation Signals',
+    desc: 'Seniority read · scope · compensation alignment',
+    detail: {
+      what: 'Evaluates whether your resume signals the right seniority level and compensation tier for the role you are targeting.',
+      how: 'Employers calibrate candidate level from job titles, company prestige, team/budget scope, and the scale of accomplishments. This step reads those signals holistically and flags mismatches — such as a resume that reads mid-level when targeting a director role, or one that undersells scope by omitting team size and budget figures.',
+      output: 'A level assessment with a plain-language verdict on how senior the document reads, what signals are helping or hurting, and specific additions or reframes to close the gap.',
+    },
+  },
+  {
+    id: 'voice',
+    name: 'Consistency & Voice Audit',
+    desc: 'Brand coherence · tone · cross-section consistency',
+    detail: {
+      what: 'Checks that the same professional persona comes through consistently across every section of the document.',
+      how: 'Because each prior step rewrites sections independently, inconsistencies can creep in — the summary may sound senior and strategic while the experience bullets sound junior and task-focused, or the tone shifts mid-document. This step reads the full document holistically and flags any breaks in voice, persona, or positioning.',
+      output: 'A cross-section consistency report identifying tone mismatches, persona breaks, and positioning contradictions — with specific language fixes for each.',
+    },
+  },
+  {
+    id: 'reconcile',
+    name: 'Fix Reconciliation',
+    desc: 'Extracting every required change into a checklist',
+    detail: {
+      what: 'Reads all prior analysis outputs and extracts every discrete fix into a structured checklist.',
+      how: 'Catalogues every recommended change before the document is built so nothing gets lost in compile.',
+      output: 'A numbered checklist of every required change by category. The compile step applies every item.',
+    },
+  },
+  {
+    id: 'compile',
+    name: 'Build Document',
+    desc: 'Synthesizing final document…',
+    detail: {
+      what: 'Combines all analysis outputs into a single, complete, polished document.',
+      how: 'Draws on every prior step — rewritten header, summary, skills, experience, career narrative, supporting sections, formatting fixes, JD alignment, company research, and level signal assessment — to produce a coherent, consistent document. Resume output is tightly scoped to 1–2 pages. CV output is comprehensive with no length cap.',
+      output: 'A complete Resume or CV in clean plain text, structured for both human readability and ATS compatibility. Ready to download as PDF.',
+    },
+  },
+]
+
+// ══════════════════════════════════════════════════════
+// SYSTEM PROMPTS
+// ══════════════════════════════════════════════════════
+function buildSystem(stepId) {
+  const industry = document.getElementById('ctx-industry').value.trim() || "the candidate's industry";
+  const role     = document.getElementById('ctx-role').value.trim()     || 'not specified';
+  const jd       = document.getElementById('jd-input').value.trim();
+  const docType  = currentDocType;
+  const isCV     = docType === 'cv';
+  const jdBlock  = jd
+    ? `\n\nJOB DESCRIPTION THE CANDIDATE IS TARGETING:\n"""\n${jd}\n"""\n\nAlign all feedback and rewrites tightly to the language, skills, and priorities in this job description.`
+    : '';
+
+  // contextBlock — role/industry framing injected into every prompt.
+  // Ensures function roles in non-typical industries (e.g. Purchasing Agent
+  // in Manufacturing, HR Director in Construction, CFO in Healthcare) are
+  // evaluated through the lens of what the ROLE requires, not what the
+  // industry typically values. Role = primary lens. Industry = context.
+  var NLC = String.fromCharCode(10);
+  const contextBlock = NLC +
+    'CRITICAL FRAMING — apply throughout your entire analysis:' + NLC +
+    'The TARGET ROLE (' + role + ') is the PRIMARY evaluation lens.' + NLC +
+    'The INDUSTRY (' + industry + ') is environmental context — it provides domain vocabulary but does NOT define which skills or keywords matter most.' + NLC +
+    'Function and support roles are common in non-typical industries: a Purchasing Agent in Manufacturing, an HR Director in Construction, a CFO in Healthcare, an IT Manager in Retail.' + NLC +
+    'Always evaluate: does this content serve what the TARGET ROLE requires, given the industry environment? Never the reverse.' + NLC +
+    NLC +
+    'AUTHENTICITY RULE — critical and non-negotiable:' + NLC +
+    'Never change the factual context of where, how, or in what industry a skill was used. If someone managed vendor relationships in retail, that must remain retail — you may not reframe it as construction or any other industry. The goal is to surface and emphasize what is genuinely transferable, using accurate language. You may reframe HOW a skill is described (emphasizing outcomes and relevance) but never WHAT ACTUALLY HAPPENED or WHERE IT HAPPENED. A candidate must be able to stand behind every word in an interview without feeling misrepresented.' + NLC;
+
+  const map = {
+    contact:
+`You are a professional resume writer and ATS specialist for ${industry}.
+Target role: ${role}. Document type: ${isCV ? 'CV' : 'Resume'}.${contextBlock}${jdBlock}
+
+Review ONLY the contact and header section of this ${isCV ? 'CV' : 'resume'}.
+
+Check for:
+– Full name formatted correctly as the largest element
+– A professional title line beneath the name (not a generic objective statement)
+– Email address (professional format)
+– Phone number
+– LinkedIn URL (shortened linkedin.com/in/username format)
+– Portfolio or GitHub if relevant to the role
+– Location (City, State only — never a full street address)
+– ATS safety: no tables, text boxes, or columns in the header
+
+PII RISK CHECK — flag any of the following if present:
+– Date of birth or age
+– Photo reference or instruction
+– Full home address (street, zip — city/state only is appropriate)
+– Marital status, nationality, religion, ethnicity
+– Social security or national ID numbers
+– Salary expectations in the header
+These are discrimination-risk items for employers and should be removed. Many originate from international resume templates that don't apply to US/UK hiring.
+
+List every issue found. Then provide a cleanly rewritten header block in plain text.`,
+
+    summary:
+`You are a professional resume writer for ${industry}.
+Target role: ${role}. Document type: ${isCV ? 'CV' : 'Resume'}.${contextBlock}${jdBlock}
+
+Rewrite the professional summary section of this ${isCV ? 'CV' : 'resume'}.
+
+Rules:
+– 3–5 lines for a resume; up to 6 for a CV
+– Written in implied third-person (no "I", "me", or "my")
+– Lead with the candidate's strongest credential or most relevant achievement
+– Include 4–6 role-relevant keywords naturally
+– No generic phrases: no "results-driven", "passionate", "proven track record", "dynamic", "detail-oriented"
+– Every sentence must earn its place — cut anything that does not directly serve the target role
+${jd ? '– Use the job description\'s language to describe genuinely matching skills and experience — only where the underlying experience is actually relevant. Never apply JD language to reframe experiences that happened in a different context.' : ''}
+
+Note: You will receive the Skills Gap Analysis, Role Relevance Triage, and Transferable Skills outputs as additional context. Use the skills gaps to ensure the summary front-loads the right keywords. Use the triage decisions to understand which experience to emphasize. Use the transferable skills analysis to surface cross-domain value that should be positioned in the opening lines. If no context data is provided yet, write the best summary possible from the resume alone.
+
+Provide one rewritten summary. Add a brief note explaining your strategic choices.`,
+
+    skills:
+`You are a resume strategist and ATS specialist for ${industry}.
+Target role: ${role}.${contextBlock}${jdBlock}
+
+Audit the Core Competencies / Skills section of this ${isCV ? 'CV' : 'resume'}.
+
+Evaluate:
+– Are the right technical and domain skills present for the target role?
+– Are any skills too vague ("communication", "leadership") without context?
+– Are there outdated or irrelevant skills taking up space?
+– What keywords from the target role${jd ? ' and job description' : ''} are missing entirely?
+– Is the section organized in a logical, scannable way?
+
+Provide:
+1. A gap analysis listing missing, weak, and irrelevant skills
+2. CREDENTIAL & CERTIFICATION CHECK — For the target role (${role}) in ${industry}, list any certifications, licenses, or credentials that are:
+   – Typically required (candidate should have or be pursuing)
+   – Commonly preferred (would strengthen candidacy)
+   – Present in the resume (note which ones the candidate already holds)
+   Flag if any required credentials are missing — these are hiring blockers, not nice-to-haves.
+3. A rewritten skills section organized by category (e.g. Technical Skills, Domain Knowledge, Tools & Platforms)
+${isCV ? '   CV NOTE: For a CV, include broader skill categories — Research Methods, Statistical Analysis, Laboratory Techniques, Teaching, Grant Writing, or other academic/professional competencies relevant to the field. Do not trim to a "top 12" as you would for a resume.' : '   For a resume, keep the skills section tight — 10–15 most relevant keywords only.'}`,
+
+    experience:
+`You are a resume writer and career strategist for ${industry}.
+Target role: ${role}. Document type: ${isCV ? 'CV' : 'Resume'}.${contextBlock}${jdBlock}
+
+CONTEXT: A Role Relevance Triage has already been run. Honor those decisions:
+– Roles marked "Full Write": give 3–5 strong impact bullets
+– Roles marked "Condensed": write 1–2 lines maximum, lead with the strongest signal only
+– Roles marked "Early Career Group": collapse into a single block titled "Early Career Experience" with company/title/dates only — no bullets
+– Roles marked "Drop": omit entirely
+If no triage was run, apply this rule yourself: roles beyond 15 years old that are not directly relevant to the target role should be condensed or grouped.
+
+This step has TWO parts.
+
+PART 1 — REWRITE THE EXPERIENCE SECTION
+For each role given "Full Write" treatment:
+– Replace duty/task descriptions with accomplishment statements
+– Lead each bullet with a strong past-tense action verb (current role uses present tense)
+– Add quantified metrics wherever the original content supports them — do NOT invent numbers
+– Remove filler phrases and weak language
+– Emphasize language that is genuinely relevant to the target role${jd ? ', and use JD keywords where the underlying experience authentically matches' : ''}
+– NEVER reframe a role to sound like a different industry or context than it actually was. A retail purchasing role must remain retail — surface what transfers, in accurate terms.
+– ${isCV ? '4–7 bullets per role with fuller context — CV readers expect more depth and detail than a resume' : '3–5 bullets per role; 1–2 lines each'}
+Format: COMPANY NAME | Job Title | Date Range, then bullets.
+Flag any bullet where metrics could not be added and briefly explain why.
+Apply condensed/drop/group decisions — do not fully expand all roles.
+
+PART 2 — ACHIEVEMENT QUALITY AUDIT
+Audit every bullet in the "Full Write" roles using this three-tier framework:
+– TASK-LEVEL (weakest): describes a responsibility with no outcome ("Managed vendor relationships")
+– OUTCOME-LEVEL (strong): shows a result ("Reduced reporting time by 40%")
+– IMPACT-LEVEL (strongest): connects outcome to business value ("Reduced reporting time 40%, enabling team to close 2 additional clients per quarter")
+
+For each role, list bullets by tier. For every task-level bullet, ask the candidate a targeted question to help them find the data to elevate it.
+
+Label the two parts clearly.`,
+
+    supporting:
+`You are a professional resume and CV writer for ${industry}.
+Target role: ${role}. Document type: ${isCV ? 'CV' : 'Resume'}.${contextBlock}${jdBlock}
+
+Review all supporting sections of this ${isCV ? 'CV' : 'resume'} — Education, Certifications, Licenses, Projects, Publications, Presentations, Awards, Volunteering, Professional Affiliations, or any other sections below the Experience block.
+
+${isCV
+  ? `This is a CV. Publications, Presentations, Research, Grants, and Affiliations are PRIMARY evaluation criteria — give them full treatment. List all entries with proper academic/professional citation format. Flag anything missing or improperly formatted.`
+  : `This is a resume. Be ruthless about relevance. Only include supporting content that serves the target role. Suggest removing anything that is outdated, irrelevant, or takes space from more impactful content.`}
+
+For each section present:
+– Evaluate completeness and formatting
+– Note what should be added, removed, or reformatted
+– Provide a rewritten version of each section
+
+SECTION-SPECIFIC GUIDANCE:
+
+LANGUAGE SKILLS — If present, use standard proficiency levels: Native, Fluent (C2), Advanced (C1), Upper-Intermediate (B2), Intermediate (B1). Vague labels like "conversational" or "basic" should be replaced with these. If not present but the candidate's background suggests multilingual capability, note it as something to add.
+
+PUBLICATIONS — Format using the appropriate citation standard for the field:
+- Academic/research: APA or MLA (author, year, title, journal, DOI)
+- Legal: Bluebook format
+- Business/trade: simplified (Title, Publication, Date)
+Flag any missing DOIs, missing co-authors, or improperly formatted entries.
+
+PATENTS & IP — If patents are mentioned, format as: Patent Title, Patent Number, Issuing Authority, Year. If patent pending, note as "Patent Pending, Application #[number], [Year]". Flag any patents listed without numbers.
+
+PROJECTS — Include: project name, your role, technologies/methods used, and outcome or scale. For open-source or GitHub projects, include the repository URL if it strengthens the application.`,
+
+    format:
+`You are a resume format specialist and ATS expert for ${industry}.
+Target role: ${role}. Document type: ${isCV ? 'CV' : 'Resume'}.
+
+${contextBlock}
+Note: A Role Relevance Triage has been run. When evaluating page length, factor in that some older roles may be condensed or dropped — assess structure accordingly.
+
+Evaluate the FORMAT, STRUCTURE, and ATS COMPATIBILITY of this ${isCV ? 'CV' : 'resume'} — focus only on structure and presentation, not content quality (that was covered in other steps).
+
+Check:
+– Section ordering (standard: Summary → Skills → Experience → Education → Supporting)
+– Consistency of date formats throughout
+– Bullet length and parallelism
+– Page length appropriate for experience level (${isCV ? 'CVs have no page limit' : 'most resumes should be 1 page under 5 years experience, 2 pages for senior roles'})
+– White space and visual breathing room
+– ATS danger zones: tables, columns, text boxes, headers/footers, graphics, logos, non-standard fonts, special characters
+– Consistent verb tense (past for prior roles, present for current)
+– Section header formatting consistency
+
+Output a prioritized list of issues with specific recommended fixes for each. Rate overall ATS compatibility: High / Medium / Low with a brief explanation.`,
+
+    narrative:
+`You are a career coach and resume strategist for ${industry}.
+Target role: ${role}. Document type: ${isCV ? 'CV' : 'Resume'}.${contextBlock}${jdBlock}
+
+Evaluate the career narrative and progression arc of this ${isCV ? 'CV' : 'resume'} as a recruiter would during a 6–10 second first pass.
+
+Assess:
+1. TRAJECTORY — Does the career show clear upward or intentional lateral movement? Is there a logical story from where they started to where they are targeting?
+2. GAPS — Are there employment gaps? If so, are they explained or will they raise red flags?
+3. SHORT TENURES — Are there roles under 18 months? Do they cluster in a way that suggests instability?
+4. PIVOTS & TRANSITIONS — Are there industry changes, function changes, or title regressions? Do they make sense given the overall arc?
+5. NARRATIVE SUPPORT — Does the summary frame the candidate's trajectory, or does it just list skills? Does the experience section tell a story or just list jobs?
+6. TARGET ROLE FIT — Does the overall progression logically lead to the target role, or does it feel like a stretch or mismatch?
+
+For each issue found, provide:
+– A plain-language explanation of how it reads to an outside evaluator
+– Specific language recommendations: what to add to the summary, what framing to use in bullet points, or what brief explanatory note to add for gaps or pivots
+– Whether the issue is a minor flag, moderate concern, or significant barrier
+
+End with an overall narrative strength rating: Strong / Needs Framing / Significant Gaps.
+
+PART 2 — RED FLAG CHECK
+Review the document for anything that might raise concerns in a recruiter's mind or trigger a question in an interview that the candidate should have pre-empted on the document:
+
+– Unexplained employment gaps (any gap over 3 months)
+– Vague role descriptions that could seem evasive ("Consultant" with no clients or deliverables named)
+– Title inflation signals (e.g. "VP" at a 3-person company, or title that doesn't match the scope described)
+– Accomplishment claims that seem implausibly large without supporting context
+– Roles that were very short with no explanation
+– Employer names that are unfamiliar and may be mistaken for lesser-known firms
+– Dates that don't add up or seem inconsistent
+
+For each red flag found:
+– Describe exactly what the concern is
+– Rate severity: Minor / Moderate / Significant
+– Provide specific language to pre-empt or address it on the document itself`,
+
+    tailoring:
+`You are a resume targeting specialist for ${industry}.
+Target role: ${role}. Document type: ${isCV ? 'CV' : 'Resume'}.${contextBlock}
+JOB DESCRIPTION:
+"""
+${jd}
+"""
+
+Perform a detailed keyword and alignment analysis between the resume and this job description.
+
+1. KEYWORD MATCH SCORE — Rate 1–10 with explanation
+2. REQUIRED QUALIFICATIONS — List each from the JD, mark as: Present / Partially Present / Missing
+3. PREFERRED QUALIFICATIONS — Same treatment
+4. MISSING KEYWORDS — Exact terms from the JD that don't appear in the resume
+5. LANGUAGE GAPS — Places where the resume uses different words for the same concept the JD uses (e.g. resume says "built pipelines", JD says "developed ETL workflows")
+6. PRIORITIZATION GAPS — Achievements or skills that are buried but should be front-loaded given this specific JD
+7. SPECIFIC SUBSTITUTIONS — Line-by-line recommendations for where to insert JD language naturally
+
+${isCV ? 'CV NOTE: A CV is a comprehensive record — keyword alignment should add to or emphasize existing content, never recommend removing credentials, publications, or roles to better match a JD. The JD adapts to the CV, not the other way around.' : ''}
+
+ANTI-STUFFING RULE: Every keyword recommendation must be backed by a genuine skill or experience. Never recommend adding a keyword that the candidate cannot authentically speak to in an interview. If a required keyword has no authentic backing in the resume, flag it as a GENUINE GAP rather than recommending it be inserted anyway. A resume that scores 10/10 on keyword match but misrepresents the candidate will fail at interview stage and damage their credibility.`,
+
+    triage:
+`You are a senior resume strategist for ${industry}.
+Target role: ${role}. Document type: ${isCV ? 'CV' : 'Resume'}.${contextBlock}${jdBlock}
+
+ROLE RELEVANCE TRIAGE — evaluate every role in this ${isCV ? 'CV' : 'resume'} before any rewriting begins.
+
+For each role, assess:
+1. RECENCY — How many years ago did this role end?
+2. RELEVANCE — How directly does this role support the target position (${role})?
+3. UNIQUENESS — Does this role demonstrate something not already shown by a more recent position?
+4. SENIORITY SIGNAL — Does this role strengthen or weaken the overall level read?
+
+Assign each role one of four treatments:
+– FULL WRITE: recent, relevant, or adds a unique signal — deserves 3–5 impact bullets
+– CONDENSED: moderately relevant or older (8–12 years) — write 1–2 lines only
+– EARLY CAREER GROUP: roles beyond 12–15 years with limited relevance — collapse into a single unlisted "Early Career" block with company/title/year only
+– DROP: irrelevant, redundant with a stronger role, or potentially harmful to the narrative
+
+${isCV ? 'Note: This is a CV. All roles are preserved regardless of age. Still assess relevance and bullet depth — CV roles can be full or condensed but not dropped.' : ''}
+
+Output a triage table:
+| Role | Company | Years Ago | Treatment | Rationale |
+
+Then provide:
+– RECOMMENDED PAGE TARGET: X pages (based on experience level and treatments)
+– NARRATIVE STRATEGY: 2–3 sentences on how to frame the overall career arc for this application`,
+
+    transfer:
+`You are a career transition specialist and resume strategist for ${industry}.
+Target role: ${role}. Document type: ${isCV ? 'CV' : 'Resume'}.${contextBlock}${jdBlock}
+
+Identify TRANSFERABLE SKILLS in this resume — capabilities demonstrated in one context that directly apply to the target role (${role}) but are not currently framed as relevant.
+
+This matters most for:
+– Career changers moving between industries or functions
+– Candidates with non-linear histories
+– Anyone whose most relevant skills appear in older or tangential roles
+
+For each transferable skill found:
+1. SKILL NAME — what the capability actually is
+2. WHERE IT APPEARS — which role or section it comes from
+3. TARGET RELEVANCE — why it matters for ${role} specifically
+4. CURRENT FRAMING — how it reads now (quote if possible)
+5. RECOMMENDED REFRAME — exact language that accurately describes the skill in a way that highlights its relevance to the target role, WITHOUT changing the industry context or factual setting in which it was developed. The candidate must be able to defend this language in an interview.
+
+Also flag any HIDDEN STRENGTHS — accomplishments or experiences that are undersold or buried despite being highly relevant to the target role.
+
+If this candidate appears to be a direct match with no significant transferable framing needed, say so explicitly and note which strengths are already well-positioned.
+
+${isCV ? 'CV NOTE: For a CV, transferable skills should be presented within their full academic and professional context — do not strip away domain specificity to make something sound more broadly relevant. A CV reader expects depth and completeness, not a condensed pitch.' : ''}`,
+
+    voice:
+`You are a senior editor reviewing a ${isCV ? 'CV' : 'resume'} for professional brand consistency.
+Industry: ${industry}. Target role: ${role}.${contextBlock}
+Read the ENTIRE document holistically. Do not evaluate individual sections — evaluate the WHOLE.
+
+Check for:
+1. PERSONA CONSISTENCY — Does the same professional come through in every section? Does the summary describe a strategic leader but the bullets read like a junior contributor?
+2. TONE CONSISTENCY — Does the language register stay consistent (formal/confident/technical) or does it shift between sections?
+3. POSITIONING CONSISTENCY — Is the candidate positioned for the same role throughout, or does the summary say one thing and the experience imply another?
+4. VERB AND LANGUAGE PATTERNS — Are strong action verbs used consistently, or do some sections fall back into passive or weak language?
+5. TENSE CONSISTENCY — Is past tense used for all prior roles and present tense for the current role only?
+6. LEVEL CONSISTENCY — Does the scope and seniority of accomplishments feel consistent, or do some sections undercut the overall level being claimed?
+
+For each inconsistency:
+– Identify exactly where the break occurs (which section, which line)
+– Explain how it reads to a recruiter
+– Provide exact replacement language
+
+End with an OVERALL VOICE ASSESSMENT: Consistent / Minor Inconsistencies / Significant Breaks`,
+
+  };
+
+  if (stepId === 'levelsignal') return buildLevelSignalPrompt(industry, role, jd, isCV);
+  if (stepId === 'company') return buildCompanyPrompt(industry, role);
+  return map[stepId];
+}
+
+function buildLevelSignalPrompt(industry, role, jd, isCV) {
+  const jdBlock = jd
+    ? '\n\nJOB DESCRIPTION:\n\"\"\"\n' + jd + '\n\"\"\"\n\nUse the level and scope signals in this JD to calibrate your assessment.'
+    : '';
+  const roleCtxNote = '\nCRITICAL FRAMING: The target role (' + role + ') is the primary evaluation lens. The industry (' + industry + ') is environmental context only. Evaluate seniority signals against what THIS ROLE at THIS LEVEL requires, not what the industry typically values.' +
+    '\nAUTHENTICITY: Evaluate the resume as written. Do not suggest reframing roles to sound like different industries. Only recommend additions that accurately reflect the candidate\'s real scope and achievements.';
+  return 'You are a senior talent acquisition specialist and compensation strategist for ' + industry + '.' +
+    ' Target role: ' + role + '. Document type: ' + (isCV ? 'CV' : 'Resume') + '.' + jdBlock +
+    '\n\nEvaluate the SENIORITY LEVEL and COMPENSATION SIGNALS this ' + (isCV ? 'CV' : 'resume') + ' projects.' +
+    '\n\nEmployers triangulate candidate level from five signal categories. Assess each:' +
+    '\n\n1. TITLE SIGNALS — Do the job titles held match the target role level? Are there title inflations (Manager at a 5-person startup) or deflations that need context?' +
+    '\n\n2. SCOPE SIGNALS — Are team size, budget ownership, geographic reach, and organizational span stated? These are the clearest level indicators and are frequently omitted.' +
+    '\n\n3. COMPANY PRESTIGE & SCALE — Do the employers signal the right caliber? A Director at a Fortune 500 reads differently than the same title at an unknown firm. Note where context would help.' +
+    '\n\n4. ACCOMPLISHMENT SCALE — Do the metrics and outcomes match the target level? A VP-level candidate should show portfolio-level impact, not individual contributor wins.' +
+    '\n\n5. VOCABULARY & FRAMING — Does the language sound like the target level? Senior candidates use words like "defined strategy", "drove organizational change", "P&L ownership". Junior language ("assisted with", "supported the team") undercuts seniority.' +
+    '\n\nFor each category:' +
+    '\n– Current signal strength: Strong / Adequate / Weak' +
+    '\n– Specific evidence from the document' +
+    '\n– Exact recommended additions or reframes' +
+    '\n\nClose with:' +
+    '\n– OVERALL LEVEL READ: What level does this document project? (e.g. Mid-Level IC, Senior IC, Manager, Director, VP)' +
+    '\n– TARGET LEVEL GAP: How far is the projected level from the target role, and what are the two or three highest-leverage fixes?' +
+    '\n– COMPENSATION POSITIONING: Based on the level signals present, does this resume position the candidate to negotiate at the top of the range for ' + role + '? What specific additions (team size, budget owned, revenue impacted) would strengthen compensation leverage?';
+}
+
+function buildCompanyPrompt(industry, role) {
+  const company = document.getElementById('ctx-company').value.trim();
+  const jd      = document.getElementById('jd-input').value.trim();
+  const isCV    = currentDocType === 'cv';
+  const jdSnip  = jd ? ('\n\nJob description for context:\n\"\"\"\n' + jd.slice(0, 600) + '\n\"\"\"') : '';
+  return 'You are a company research specialist and resume strategist.' +
+    ' The candidate is applying for: ' + role + ' at ' + company + ' (' + industry + ' industry).' + jdSnip +
+    '\n\nYour task has TWO clearly labeled parts. Use web search to research ' + company + ' before responding.' +
+    '\n\nResearch: mission and values language they use publicly, known tech stack and tools, recent news and growth priorities, cultural signals from job postings, and industry reputation relevant to a ' + role + ' candidate.' +
+    '\n\nPART 1 — RESUME ALIGNMENT (for the ' + (isCV ? 'CV' : 'resume') + ')' +
+    '\nBased on research, provide specific recommendations for the ' + (isCV ? 'CV' : 'resume') + ' to resonate with ' + company + ':' +
+    '\n– Language or terminology that mirrors how ' + company + ' describes its work' +
+    '\n– Which candidate achievements to emphasize given their known priorities' +
+    '\n– Skills or tools to surface more prominently based on their stack' +
+    '\n– Framing adjustments for cultural fit' +
+    '\n\nPART 2 — COVER LETTER HOOKS & INTERVIEW TALKING POINTS' +
+    '\nProvide 4–6 specific, research-backed talking points for a cover letter or interview:' +
+    '\n– Each must reference something specific and real about ' + company +
+    '\n– Connect it to something concrete in the candidate\'s background' +
+    '\n– No generic flattery — only include points that reflect genuine research' +
+    '\n– Format each as: [Company Signal] → [Candidate Connection]' +
+    '\n\nBe specific. Vague observations about company culture are not useful.';
+}
+
+function buildReconcilePrompt(results) {
+  var role     = document.getElementById('ctx-role').value.trim() || 'not specified';
+  var isCV     = currentDocType === 'cv';
+  var docLabel = isCV ? 'CV' : 'resume';
+  var stepCount = STEPS.filter(function(s) { return ['compile','reconcile'].indexOf(s.id) === -1 && results[s.id]; }).length;
+  var sections  = STEPS
+    .filter(function(s) { return ['compile','reconcile','company'].indexOf(s.id) === -1 && results[s.id]; })
+    .map(function(s) { return '=== ' + s.name.toUpperCase() + ' ===' + String.fromCharCode(10) + results[s.id]; })
+    .join(String.fromCharCode(10) + String.fromCharCode(10));
+  var companyBlock = results.company
+    ? (String.fromCharCode(10,10) + '=== COMPANY RESEARCH & ALIGNMENT ===' + String.fromCharCode(10) + results.company)
+    : '';
+  var NL = String.fromCharCode(10);
+  return 'You are a meticulous document editor preparing a ' + docLabel + ' for final production. Target role: ' + role + '.' + NL + NL +
+    'Below are outputs from ' + stepCount + ' analysis steps.' + NL + NL +
+    'Extract EVERY discrete change recommended across all steps into a single numbered checklist.' + NL + NL +
+    'ANALYSIS OUTPUTS:' + NL + sections + companyBlock + NL + NL +
+    'FORMAT each item:' + NL +
+    '[N] [CATEGORY] - [Section] - [Specific action]' + NL + NL +
+    'Categories: CONTENT REWRITE | KEYWORD ADD | FRAMING ADJUST | STRUCTURAL FIX | ADDITION | REMOVAL' + NL + NL +
+    'Rules:' + NL +
+    '- Be exhaustive. Do not summarize or group distinct changes.' + NL +
+    '- Be specific. Name the section, role, or bullet.' + NL +
+    '- No commentary. Only actionable changes.' + NL +
+    '- If a step produced a rewritten block, add: "Use rewritten version from [Step Name]" as a CONTENT REWRITE.' + NL +
+    '- Number every item from 1.' + NL + NL +
+    'End with: TOTAL CHANGES: N (breakdown by category)';
+}
+
+function buildCompilePrompt(results) {
+  const industry = document.getElementById('ctx-industry').value.trim() || "the candidate's industry";
+  const role     = document.getElementById('ctx-role').value.trim()     || 'not specified';
+  const jd       = document.getElementById('jd-input').value.trim();
+  const isCV     = currentDocType === 'cv';
+  const company  = document.getElementById('ctx-company').value.trim();
+  const docLabel = isCV ? 'CV (curriculum vitae)' : 'Resume';
+  const docShort = isCV ? 'CV' : 'resume';
+  const docReq   = isCV
+    ? 'FULL CV: include Contact Info, Professional Summary, Core Competencies, Work Experience (all roles, full detail), Education, Certifications, Publications, Projects, Affiliations, Awards. No length limit.'
+    : 'RESUME of 1-2 pages: include Contact Info, Professional Summary (3-5 lines), Core Competencies (keyword-organized grid), Work Experience (impact bullets, most relevant roles), Education, Certifications. Cut anything that does not serve the target role.';
+
+  const jdSnip  = jd      ? ('\n\nJOB DESCRIPTION:\n' + jd)     : '';
+  const coSnip  = company ? ('\nTarget company: ' + company)     : '';
+  const jdRule  = jd      ? '- Mirror exact keywords and language from the job description throughout' : '- Use strong, specific, outcome-focused language';
+  const coRule  = company ? '- Incorporate company-specific language and framing from the alignment notes' : '';
+
+  const checklist = results.reconcile
+    ? ('\n\nCOMPLETE FIX CHECKLIST — apply every item:\n' + results.reconcile)
+    : '';
+
+  const rewrites = STEPS
+    .filter(function(s) { return ['compile','reconcile','company'].indexOf(s.id) === -1 && results[s.id]; })
+    .map(function(s) { return '--- ' + s.name.toUpperCase() + ' ---\n' + results[s.id]; })
+    .join('\n\n');
+
+  const companyAlign = results.company ? ('\n\n--- COMPANY ALIGNMENT ---\n' + results.company) : '';
+
+  const compileRoleCtx = '\nCRITICAL: The target role (' + role + ') is the PRIMARY evaluation lens. The industry (' + industry + ') is environmental context. Every section must serve what the ROLE requires first.';
+  return 'You are a professional resume writer producing a final ' + docShort + ' for a ' + industry + ' candidate targeting: ' + role + '.' +
+    ' Document type: ' + docLabel + '.' + jdSnip + coSnip + compileRoleCtx +
+    '\n\nYou have two inputs:' +
+    '\n1. A CHECKLIST of every fix that must be applied' +
+    '\n2. REWRITE SOURCE MATERIAL — the actual rewritten content from each analysis step' +
+    checklist +
+    '\n\nREWRITE SOURCE MATERIAL:\n' + rewrites + companyAlign +
+    '\n\nTASK:' +
+    '\n- Apply EVERY checklist item. Do not skip any.' +
+    '\n- REWRITE SOURCE steps (contact, summary, skills, experience, supporting): use the rewritten content from these directly as the document content.' +
+    '\n- ANALYSIS steps (triage, transfer, narrative, voice, levelsignal): these produced recommendations, not final content. Apply their recommendations to the document — do not copy their text verbatim.' +
+    '\n- Integrate everything into one coherent document.' +
+    '\n\nDOCUMENT REQUIREMENTS:\n' + docReq +
+    '\n\nFORMATTING:' +
+    '\n- Plain text only, no markdown' +
+    '\n- Section headers in ALL CAPS followed by dashes (e.g. EXPERIENCE\n----------)' +
+    '\n- Bullets start with -' +
+    '\n- Role entries: COMPANY NAME | Job Title | Start - End' +
+    '\n- ATS-safe: no tables, columns, or special characters' +
+    '\n' + jdRule +
+    (coRule ? '\n' + coRule : '') +
+    '\n\nOUTPUT:' +
+    '\nFirst: the complete ' + docShort + ' document.' +
+    '\nThen after a line of equals signs (=====), a COMPLIANCE NOTES section: list any checklist items not applied and why. If all applied, write "All checklist items applie' +
+    '\n\nADDITIONAL COMPILE RULES:\n- AUTHENTICITY: Never change the factual context of any experience. If a role was in retail, it stays retail. If a metric came from a small company, preserve that context. Emphasize what transfers accurately — do not reframe history to match the target industry.\n- Honor Role Relevance Triage: Full Write roles get 3-5 impact bullets; Condensed roles get 1-2 lines; Early Career Group roles become a single unlisted block; Dropped roles are omitted entirely.\n- Apply all Transferable Skills reframes from the transfer analysis step.\n- Apply all Voice Audit consistency fixes so every section sounds like the same professional.\n- The final document must read as a unified whole, not a patchwork.\n\nDIGITAL PRESENCE NOTE: After the compliance section, remind the candidate to verify these specific items match their LinkedIn profile: job titles, employment dates, employer names, and education credentials. Discrepancies between a resume and LinkedIn are a common recruiter red flag.';
+}
+
+// ══════════════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════════════
+let mode           = 'claude';
+let currentDocType = 'resume';
+let fileData       = null;
+let isRunning      = false;
+let isRevising     = false;
+let isApproved     = false;
+let revisionCount  = 1;
+let revisionHistory = [];  // stack of prior doc versions for undo
+let approvedDoc    = null; // locked version for LinkedIn
+let _analysisCtx   = null; // stored analysis results for revision context
+
+// ══════════════════════════════════════════════════════
+// MODE & DOC TYPE
+// ══════════════════════════════════════════════════════
+function toggleDocExplain(btn) {
+  const panel = document.getElementById('doc-explain-panel');
+  panel.classList.toggle('visible');
+  btn.textContent = panel.classList.contains('visible')
+    ? '▴ Hide explanation'
+    : '▾ Not sure which to choose? See what each is and when to use it';
+}
+
+
+function setMode(m) {
+  mode = m;
+  document.querySelectorAll('.mode-pill button').forEach(b => b.classList.toggle('active', b.dataset.mode === m));
+  document.getElementById('lm-url-row').classList.toggle('visible', m === 'lm');
+}
+
+function setDocType(t) {
+  currentDocType = t;
+  document.querySelectorAll('.doc-type-btn').forEach(b => b.classList.toggle('active', b.dataset.type === t));
+  const btn = document.getElementById('run-btn');
+  if (!btn.disabled) btn.textContent = t === 'cv' ? 'Analyze & Build CV' : 'Analyze & Build Resume';
+}
+
+// ══════════════════════════════════════════════════════
+// FILE HANDLING & TEXT EXTRACTION
+// ══════════════════════════════════════════════════════
+function triggerPick() {
+  if (fileData) return;
+  document.getElementById('file-input').click();
+}
+
+document.getElementById('file-input').addEventListener('change', e => {
+  if (e.target.files[0]) loadFile(e.target.files[0]);
+});
+
+const dz = document.getElementById('drop-zone');
+dz.addEventListener('dragover',  e => { e.preventDefault(); dz.classList.add('drag-over'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+dz.addEventListener('drop', e => {
+  e.preventDefault();
+  dz.classList.remove('drag-over');
+  if (e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]);
+});
+
+async function loadFile(file) {
+  const ext = file.name.split('.').pop().toLowerCase();
+  if (!['pdf', 'doc', 'docx'].includes(ext)) {
+    showError('Please upload a PDF or Word document (.pdf, .doc, .docx).');
+    return;
+  }
+
+  // Show file card immediately
+  dz.classList.add('has-file');
+  dz.onclick = null;
+  document.getElementById('file-type-icon').textContent = ext === 'pdf' ? '📕' : '📘';
+  document.getElementById('file-type-icon').className = 'file-icon ' + (ext === 'pdf' ? 'pdf' : 'docx');
+  document.getElementById('file-name-display').textContent = file.name;
+  document.getElementById('file-size-display').textContent = formatBytes(file.size);
+  setFileStatus('extracting', 'Extracting text…');
+  clearError();
+
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    let text = '';
+
+    if (ext === 'pdf') {
+      text = await extractPdfText(arrayBuffer);
+    } else {
+      text = await extractDocxText(arrayBuffer);
+    }
+
+    if (!text || text.trim().length < 50) {
+      throw new Error('Could not extract readable text from this file. Try saving it as a plain PDF and re-uploading.');
+    }
+
+    fileData = { name: file.name, size: file.size, ext, text: text.trim() };
+    setFileStatus('ready', `Text extracted — ${text.trim().split(/\s+/).length.toLocaleString()} words`);
+
+    // Show extracted text preview
+    const previewWrap = document.getElementById('extract-preview-wrap');
+    const previewBody = document.getElementById('extract-preview-body');
+    if (previewWrap && previewBody) {
+      previewBody.textContent = text.trim().slice(0, 2000) + (text.trim().length > 2000 ? '\n\n[... truncated for preview — full text will be analyzed ...]' : '');
+      previewWrap.classList.add('visible');
+    }
+
+    const btn = document.getElementById('run-btn');
+    btn.disabled = false;
+    btn.textContent = currentDocType === 'cv' ? 'Analyze & Build CV' : 'Analyze & Build Resume';
+
+  } catch (err) {
+    setFileStatus('error', 'Extraction failed — ' + err.message);
+    showError('File error: ' + err.message);
+    fileData = null;
+  }
+}
+
+async function extractPdfText(arrayBuffer) {
+  if (typeof pdfjsLib === 'undefined') throw new Error('PDF library not loaded. Check your internet connection.');
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  let fullText = '';
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    const pageText = content.items.map(item => item.str).join(' ');
+    fullText += pageText + '\n';
+  }
+  return fullText;
+}
+
+async function extractDocxText(arrayBuffer) {
+  if (typeof mammoth === 'undefined') throw new Error('DOCX library not loaded. Check your internet connection.');
+  const result = await mammoth.extractRawText({ arrayBuffer });
+  return result.value;
+}
+
+function removeFile(e) {
+  e.stopPropagation();
+  fileData = null;
+  dz.classList.remove('has-file');
+  dz.onclick = () => triggerPick();
+  document.getElementById('file-input').value = '';
+  document.getElementById('run-btn').disabled = true;
+  document.getElementById('run-btn').textContent = 'Analyze Resume';
+  const pw = document.getElementById('extract-preview-wrap');
+  if (pw) pw.classList.remove('visible');
+  resetResults();
+  clearError();
+}
+
+function setFileStatus(type, msg) {
+  const el = document.getElementById('file-status');
+  el.className = 'file-status ' + type;
+  el.textContent = msg;
+}
+
+function formatBytes(b) {
+  if (b < 1024) return b + ' B';
+  if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
+  return (b / 1048576).toFixed(1) + ' MB';
+}
+
+// ══════════════════════════════════════════════════════
+// API — both Claude and LM Studio receive plain text
+// ══════════════════════════════════════════════════════
+async function callClaude(systemPrompt, userText) {
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 4000,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: userText }],
+    }),
+  });
+  const data = await res.json();
+  if (data.error) throw new Error(data.error.message);
+  return data.content.map(b => b.text || '').join('\n');
+}
+
+async function callLMStudio(systemPrompt, userText) {
+  const base = (document.getElementById('lm-url').value.trim() || 'http://localhost:1234').replace(/\/$/, '');
+  const res = await fetch(`${base}/v1/chat/completions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'local-model',
+      max_tokens: 4000,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user',   content: userText },
+      ],
+    }),
+  });
+  const data = await res.json();
+  if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
+  return data.choices?.[0]?.message?.content || '';
+}
+
+async function callClaudeWithSearch(systemPrompt, userText) {
+  // Web search responses use a multi-turn loop: user → tool_use → tool_result → text
+  // We drive the loop manually until stop_reason is 'end_turn' with a final text block
+  const messages = [{ role: 'user', content: userText }];
+  let finalText = '';
+  const MAX_TURNS = 6;
+
+  for (let turn = 0; turn < MAX_TURNS; turn++) {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 3000,
+        system: systemPrompt,
+        tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+        messages,
+      }),
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error.message);
+
+    const content = data.content || [];
+
+    // Collect any text blocks from this turn
+    const textBlocks = content.filter(b => b.type === 'text').map(b => b.text || '');
+    if (textBlocks.length) finalText = textBlocks.join('\n');
+
+    // If done, return the final text
+    if (data.stop_reason === 'end_turn') {
+      return finalText || '(No response text returned — the model may not have completed its answer.)';
+    }
+
+    // If tool_use, append assistant turn + synthetic tool_result and continue
+    const toolUseBlocks = content.filter(b => b.type === 'tool_use');
+    if (toolUseBlocks.length === 0) break; // no more tool calls, done
+
+    messages.push({ role: 'assistant', content });
+
+    // Build tool_result blocks for each tool_use
+    const toolResults = toolUseBlocks.map(tu => ({
+      type: 'tool_result',
+      tool_use_id: tu.id,
+      content: tu.input?.query
+        ? `Search executed for: "${tu.input.query}". Results are being processed.`
+        : 'Search executed.',
+    }));
+    messages.push({ role: 'user', content: toolResults });
+  }
+
+  return finalText || '(Research completed but no summary was generated. Try re-running.)';
+}
+
+async function callLMStudioWithSearch(systemPrompt, userText) {
+  // Requires a web search plugin active in LM Studio server settings
+  const base = (document.getElementById('lm-url').value.trim() || 'http://localhost:1234').replace(/\/$/, '');
+  const res = await fetch(base + '/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'local-model',
+      max_tokens: 2000,
+      tools: [{
+        type: 'function',
+        function: {
+          name: 'web_search',
+          description: 'Search the web for current information about a company or topic',
+          parameters: {
+            type: 'object',
+            properties: { query: { type: 'string', description: 'The search query' } },
+            required: ['query'],
+          },
+        },
+      }],
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user',   content: userText },
+      ],
+    }),
+  });
+  const data = await res.json();
+  if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
+  return data.choices?.[0]?.message?.content || '';
+}
+
+async function callAI(systemPrompt, userText) {
+  return mode === 'lm'
+    ? callLMStudio(systemPrompt, userText)
+    : callClaude(systemPrompt, userText);
+}
+
+
+async function callAIHighTokens(systemPrompt, userText) {
+  // Higher token budget for LinkedIn generation (5 full sections)
+  if (mode === 'lm') {
+    const base = (document.getElementById('lm-url').value.trim() || 'http://localhost:1234').replace(/\/$/, '');
+    const res = await fetch(base + '/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'local-model',
+        max_tokens: 6000,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user',   content: userText },
+        ],
+      }),
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
+    return data.choices?.[0]?.message?.content || '';
+  } else {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 6000,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userText }],
+      }),
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error.message);
+    return data.content.map(b => b.text || '').join('\n');
+  }
+}
+
+async function callAIWithSearch(systemPrompt, userText) {
+  return mode === 'lm'
+    ? callLMStudioWithSearch(systemPrompt, userText)
+    : callClaudeWithSearch(systemPrompt, userText);
+}
+
+// ══════════════════════════════════════════════════════
+// MAIN RUN
+// ══════════════════════════════════════════════════════
+async function handleRun() {
+  if (!fileData || isRunning) return;
+  if (!fileData.text) { showError('File text not yet extracted. Please wait a moment and try again.'); return; }
+
+  clearError();
+  resetResults();
+  isRunning = true;
+
+  document.getElementById('run-btn').disabled = true;
+  document.getElementById('run-btn').textContent = 'Running…';
+  showProgress();
+
+  const jd      = document.getElementById('jd-input').value.trim();
+  const company = document.getElementById('ctx-company').value.trim();
+  const analysisSteps = STEPS.filter(s => s.id !== 'compile');
+  const results = {};
+  let errored = false;
+  const totalSteps = STEPS.length; // includes compile
+
+  const resumeUserMsg = `Here is the resume/CV text to analyze:\n\n"""\n${fileData.text}\n"""`;
+
+  for (let i = 0; i < analysisSteps.length; i++) {
+    const step = analysisSteps[i];
+
+    // Skip tailoring if no JD provided
+    if (step.skipWithoutJD && !jd) {
+      setStepState(i, 'skipped');
+      results[step.id] = null;
+      updateProgress(i + 1, totalSteps, step.name);
+      continue;
+    }
+    // Skip company research if no company provided
+    if (step.skipWithoutCompany && !company) {
+      setStepState(i, 'skipped');
+      results[step.id] = null;
+      updateProgress(i + 1, totalSteps, step.name);
+      continue;
+    }
+
+    setStepState(i, 'running');
+    updateProgress(i, totalSteps, step.name);
+
+    try {
+      const sys = buildSystem(step.id);
+      let result;
+
+      if (step.id === 'company') {
+        // Company step: uses web search — gracefully skip if search unavailable (LM Studio without plugin)
+        const role2     = document.getElementById('ctx-role').value.trim()     || 'not specified';
+        const industry2 = document.getElementById('ctx-industry').value.trim() || 'not specified';
+        const docLabel  = currentDocType === 'cv' ? 'CV' : 'resume';
+        const companyMsg = 'The candidate is applying to ' + company + ' for the role of ' + role2 + ' in the ' + industry2 + ' industry. Document type: ' + docLabel + '.\n\nHere is their ' + docLabel + ' for context:\n\n\"\"\"\n' + fileData.text + '\n\"\"\"';
+        try {
+          result = await callAIWithSearch(sys, companyMsg);
+        } catch (companyErr) {
+          // Web search failed — skip gracefully rather than erroring the whole run
+          result = mode === 'lm'
+            ? '(Company Research skipped — LM Studio web search plugin not available or not configured. Enable a web search plugin in LM Studio server settings to use this step.)'
+            : '(Company Research failed: ' + companyErr.message + ')';
+        }
+
+      } else if (step.id === 'summary') {
+        // Summary: inject skills gaps, triage, and transfer so it leads with the right positioning
+        const skillsCtx   = results.skills   ? '\n\n=== SKILLS GAP ANALYSIS (use to inform keyword choices in summary) ===\n' + results.skills   : '';
+        const triageCtx   = results.triage   ? '\n\n=== ROLE RELEVANCE TRIAGE (use to understand which experience to emphasize) ===\n' + results.triage   : '';
+        const transferCtx = results.transfer ? '\n\n=== TRANSFERABLE SKILLS (use to surface cross-domain value in the summary positioning) ===\n' + results.transfer : '';
+        const sumMsg = 'Here is the resume/CV text:\n\n\"\"\"\n' + fileData.text + '\n\"\"\"' + skillsCtx + triageCtx + transferCtx;
+        result = await callAI(sys, sumMsg);
+
+      } else if (step.id === 'experience') {
+        // Experience: inject triage and transfer results so it can honor them
+        const triageCtx  = results.triage   ? '\n\n=== ROLE RELEVANCE TRIAGE (apply these decisions) ===\n' + results.triage   : '';
+        const transferCtx= results.transfer  ? '\n\n=== TRANSFERABLE SKILLS (incorporate these reframes) ===\n' + results.transfer : '';
+        const expMsg = 'Here is the resume/CV text:\n\n\"\"\"\n' + fileData.text + '\n\"\"\"' + triageCtx + transferCtx;
+        result = await callAI(sys, expMsg);
+
+      } else if (step.id === 'narrative') {
+        // Narrative: inject triage + rewritten experience so it evaluates the improved content, not the original
+        const triageCtx = results.triage     ? '\n\n=== ROLE RELEVANCE TRIAGE (already completed — reference these decisions) ===\n' + results.triage     : '';
+        const expCtx    = results.experience ? '\n\n=== REWRITTEN EXPERIENCE (evaluate the narrative of these improved bullets, not the original) ===\n' + results.experience : '';
+        const narMsg = 'Here is the original resume/CV text for reference:\n\n\"\"\"\n' + fileData.text + '\n\"\"\"' + triageCtx + expCtx;
+        result = await callAI(sys, narMsg);
+
+      } else if (step.id === 'voice') {
+        // Voice: inject all prior rewritten content + narrative framing so it checks full consistency
+        const rewrittenSections = ['contact','summary','skills','experience','supporting']
+          .filter(function(id) { return results[id]; })
+          .map(function(id) {
+            const stepObj = STEPS.find(function(s) { return s.id === id; });
+            return '=== ' + (stepObj ? stepObj.name.toUpperCase() : id.toUpperCase()) + ' (REWRITTEN) ===\n' + results[id];
+          })
+          .join('\n\n');
+        const narrativeCtx = results.narrative
+          ? '\n\n=== CAREER NARRATIVE RECOMMENDATIONS (check these are reflected consistently across all sections) ===\n' + results.narrative
+          : '';
+        const voiceMsg = rewrittenSections
+          ? 'Here is the original resume for reference:\n\n\"\"\"\n' + fileData.text + '\n\"\"\"\n\nHere are the REWRITTEN SECTIONS — audit these for consistency, not the original:\n\n' + rewrittenSections + narrativeCtx
+          : resumeUserMsg;
+        result = await callAI(sys, voiceMsg);
+
+      } else if (step.id === 'levelsignal') {
+        // Level signal: inject experience rewrite and triage for full context
+        const expCtx    = results.experience ? '\n\n=== REWRITTEN EXPERIENCE SECTION ===\n' + results.experience : '';
+        const triageCtx = results.triage     ? '\n\n=== ROLE RELEVANCE TRIAGE ===\n' + results.triage : '';
+        const lvlMsg = 'Here is the resume/CV text:\n\n\"\"\"\n' + fileData.text + '\n\"\"\"' + triageCtx + expCtx;
+        result = await callAI(sys, lvlMsg);
+
+      } else if (step.id === 'supporting') {
+        // Supporting: inject triage so it knows which roles were dropped/condensed
+        const triageCtx = results.triage ? '\n\n=== ROLE RELEVANCE TRIAGE (for context on role depth decisions) ===\n' + results.triage : '';
+        const suppMsg = 'Here is the resume/CV text:\n\n\"\"\"\n' + fileData.text + '\n\"\"\"' + triageCtx;
+        result = await callAI(sys, suppMsg);
+
+      } else {
+        result = await callAI(sys, resumeUserMsg);
+      }
+
+      results[step.id] = result;
+      setStepState(i, 'done');
+    } catch (e) {
+      setStepState(i, 'error');
+      showError(`Step "${step.name}" failed: ${e.message}`);
+      errored = true;
+      break;
+    }
+  }
+
+  // Reconcile step
+  if (!errored) {
+    const reconcileIdx = STEPS.findIndex(function(s) { return s.id === 'reconcile'; });
+    setStepState(reconcileIdx, 'running');
+    updateProgress(reconcileIdx, totalSteps, 'Reconciling fixes…');
+    try {
+      const reconcileSys = buildReconcilePrompt(results);
+      results.reconcile = await callAI(reconcileSys, 'Extract every required change from the analysis outputs into a numbered checklist.');
+      setStepState(reconcileIdx, 'done');
+    } catch (e) {
+      setStepState(reconcileIdx, 'error');
+      showError('Reconciliation failed: ' + e.message);
+      errored = true;
+    }
+  }
+
+  // Compile step
+  if (!errored) {
+    const compileIdx = STEPS.findIndex(function(s) { return s.id === 'compile'; });
+    setStepState(compileIdx, 'running');
+    updateProgress(compileIdx, totalSteps, 'Building document…');
+    try {
+      const compileSys = buildCompilePrompt(results);
+      const compiled = await callAI(compileSys, 'Apply every checklist item and produce the complete document now.');
+      results.compile = compiled;
+      setStepState(compileIdx, 'done');
+    } catch (e) {
+      setStepState(compileIdx, 'error');
+      showError('Document build failed: ' + e.message);
+      errored = true;
+    }
+  }
+
+  isRunning = false;
+  document.getElementById('run-btn').disabled = false;
+  document.getElementById('run-btn').textContent =
+    currentDocType === 'cv' ? 'Re-analyze & Rebuild CV' : 'Re-analyze & Rebuild Resume';
+
+  if (!errored) {
+    finishProgress();
+    renderResults(results);
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// PROGRESS
+// ══════════════════════════════════════════════════════
+function showProgress() {
+  document.getElementById('progress-wrap').classList.add('visible');
+  const SHORT = {
+    contact:     'Contact',
+    summary:     'Summary',
+    skills:      'Skills',
+    experience:  'Experience',
+    supporting:  'Supporting',
+    narrative:   'Narrative',
+    format:      'Format & ATS',
+    tailoring:   'Tailoring',
+    company:     'Company',
+    levelsignal: 'Level Signals',
+    voice:       'Voice Audit',
+    triage:      'Role Triage',
+    transfer:    'Transferable',
+    reconcile:   'Reconcile',
+    compile:     'Build Doc',
+  };
+  document.getElementById('step-indicators').innerHTML = STEPS.map((s, i) => `
+    <div class="step-ind" id="ind-${i}">
+      <div class="ind-dot"></div>
+      <span class="ind-name">${SHORT[s.id] || s.name}</span>
+    </div>`).join('');
+  setProgressBar(0);
+}
+
+function setStepState(i, state) {
+  const el = document.getElementById(`ind-${i}`);
+  if (!el) return;
+  const classes = { running: 'running', done: 'done', skipped: 'skipped', error: 'error-state' };
+  el.className = 'step-ind ' + (classes[state] || '');
+}
+
+function updateProgress(i, total, name) {
+  const pct = Math.round((i / total) * 100);
+  setProgressBar(pct);
+  document.getElementById('progress-label').textContent = 'Analyzing: ' + name;
+  document.getElementById('progress-pct').textContent = pct + '%';
+}
+
+function finishProgress() {
+  setProgressBar(100);
+  document.getElementById('progress-label').textContent = 'Complete';
+  document.getElementById('progress-pct').textContent = '100%';
+}
+
+function setProgressBar(pct) {
+  document.getElementById('progress-bar').style.width = pct + '%';
+}
+
+// ══════════════════════════════════════════════════════
+// RESULTS
+// ══════════════════════════════════════════════════════
+function renderResults(results) {
+  const jd      = document.getElementById('jd-input').value.trim();
+  const label   = currentDocType === 'cv' ? 'CV' : 'Resume';
+  const company2 = document.getElementById('ctx-company').value.trim();
+  const coSuffix = company2 ? (' · Aligned to ' + company2) : '';
+  document.getElementById('results-title').textContent = 'Analysis Complete — ' + label + ' Built' + coSuffix;
+
+  const analysisSteps = STEPS.filter(s => s.id !== 'compile');
+
+  document.getElementById('results-container').innerHTML = analysisSteps.map((s, i) => {
+    const skipped = (s.skipWithoutJD && !jd) || (s.skipWithoutCompany && !document.getElementById('ctx-company').value.trim());
+    const numClass = skipped ? 'section-num skipped-num' : 'section-num';
+    const detailHtml = (!skipped && s.detail) ? `
+      <div class="result-detail">
+        <div class="rd-row"><span class="rd-label rd-what">What it does</span><span class="rd-text">${escHtml(s.detail.what)}</span></div>
+        <div class="rd-row"><span class="rd-label rd-how">How it works</span><span class="rd-text">${escHtml(s.detail.how)}</span></div>
+        <div class="rd-row"><span class="rd-label rd-output">What you get</span><span class="rd-text">${escHtml(s.detail.output)}</span></div>
+      </div>` : '';
+    const bodyHtml = skipped
+      ? `<div class="result-skipped">${s.skipWithoutCompany ? 'Skipped — no company name provided. Enter a company name above and re-run to enable this step.' : 'Skipped — no job description provided. Paste a job description above and re-run to enable this step.'}</div>`
+      : `<div class="result-body" id="body-${i}">${escHtml(results[s.id] || '')}</div>`;
+    const copyBtn = skipped ? '' : `<button class="section-copy" onclick="copySection(event, ${i})">Copy</button>`;
+
+    return `
+    <div class="result-section collapsed" id="section-${i}">
+      <div class="result-section-head" onclick="toggleSection(${i})">
+        <div class="section-label">
+          <div class="${numClass}">${i + 1}</div>
+          <div>
+            <div class="section-name">${escHtml(s.name)}</div>
+            <div class="section-desc">${escHtml(skipped ? 'Skipped — requires job description' : s.desc)}</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          ${copyBtn}
+          <span class="chevron">▾</span>
+        </div>
+      </div>
+      ${detailHtml}
+      ${bodyHtml}
+    </div>`;
+  }).join('');
+
+  // Compiled document — open in review/edit panel
+  if (results.compile) {
+    // Store analysis context for revision calls
+    _analysisCtx = results;
+    revisionCount = 1;
+    revisionHistory = [];
+    isApproved = false;
+
+    // Populate editor
+    const editor = document.getElementById('doc-editor');
+    editor.value = results.compile;
+    editor.readOnly = false;
+    document.getElementById('review-title').textContent = 'Generated ' + label + ' — Ready for Review';
+    document.getElementById('revision-counter').textContent = 'Version 1';
+    document.getElementById('approve-btn').textContent = '✓ Approve & Generate LinkedIn';
+    document.getElementById('approve-btn').classList.remove('approved');
+    document.getElementById('feedback-input').disabled = false;
+    document.getElementById('apply-feedback-btn').disabled = false;
+    document.getElementById('feedback-row').style.display = 'flex';
+    document.getElementById('feedback-note').style.display = 'block';
+    document.getElementById('review-section').classList.add('visible');
+
+    // Hide LinkedIn section until approved
+    document.getElementById('linkedin-section').classList.remove('visible');
+  document.getElementById('cover-letter-gen-section').classList.remove('visible');
+  document.getElementById('interview-section').classList.remove('visible');
+  document.getElementById('email-section').classList.remove('visible');
+    document.getElementById('linkedin-output').classList.remove('visible');
+
+    // Update PDF print area
+    document.getElementById('pdf-document').innerHTML = formatForPrint(results.compile, label);
+  }
+
+  // Cover letter hooks — shown when company research ran
+  const clSection = document.getElementById('cover-letter-section');
+  const companyResult = results.company || '';
+  if (companyResult && companyResult.trim().length > 10) {
+    clSection.style.display = 'block';
+    document.getElementById('cover-letter-preview').textContent = companyResult;
+  } else if (document.getElementById('ctx-company').value.trim()) {
+    // Company was provided but result is empty — show a fallback message
+    clSection.style.display = 'block';
+    document.getElementById('cover-letter-preview').textContent =
+      'Company research ran but did not return usable results.\n\n' +
+      'This can happen when:\n' +
+      '- The company name is very new or not well-indexed\n' +
+      '- Web search returned only structured data without text content\n' +
+      '- The response was cut off before completion\n\n' +
+      'Try re-running with a more specific company name, or add the company URL to the name field (e.g. "Acme Corp acmecorp.com").';
+  } else {
+    clSection.style.display = 'none';
+  }
+
+  document.getElementById('results-wrap').classList.add('visible');
+  document.getElementById('results-wrap').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  window._lastResults = results;
+}
+
+function toggleSection(i) { document.getElementById(`section-${i}`).classList.toggle('collapsed'); }
+function expandAll()   { document.querySelectorAll('.result-section').forEach(s => s.classList.remove('collapsed')); }
+function collapseAll() { document.querySelectorAll('.result-section').forEach(s => s.classList.add('collapsed')); }
+
+function copySection(e, i) {
+  e.stopPropagation();
+  const el = document.getElementById(`body-${i}`);
+  if (!el) return;
+  navigator.clipboard.writeText(el.textContent).catch(() => {});
+  const btn = e.target; btn.textContent = 'Copied!';
+  setTimeout(() => btn.textContent = 'Copy', 1800);
+}
+
+function copyAll() {
+  if (!window._lastResults) return;
+  const analysisSteps = STEPS.filter(s => s.id !== 'compile');
+  const text = analysisSteps
+    .filter(s => window._lastResults[s.id])
+    .map(s => `═══ ${s.name.toUpperCase()} ═══\n\n${window._lastResults[s.id]}`)
+    .join('\n\n\n');
+  const doc = window._lastResults.compile ? `\n\n\n═══ GENERATED DOCUMENT ═══\n\n${window._lastResults.compile}` : '';
+  navigator.clipboard.writeText(text + doc).catch(() => {});
+  const toast = document.getElementById('copy-all-toast');
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 2200);
+}
+
+function downloadPdf() {
+  // Sync print area with active tab's content before printing
+  var activeTab = document.getElementById('tab-1page').classList.contains('active') ? 'doc-editor-1page' : 'doc-editor';
+  const currentDoc = document.getElementById(activeTab).value;
+  if (currentDoc.trim()) {
+    const label = currentDocType === 'cv' ? 'CV' : 'Resume';
+    document.getElementById('pdf-document').innerHTML = formatForPrint(currentDoc, label);
+  }
+  const printArea = document.getElementById('pdf-print-area');
+  printArea.style.display = 'block';
+  document.querySelectorAll('.shell > *:not(#pdf-print-area)').forEach(el => {
+    el._pd = el.style.display; el.style.display = 'none';
+  });
+  window.print();
+  document.querySelectorAll('.shell > *:not(#pdf-print-area)').forEach(el => {
+    el.style.display = el._pd || '';
+  });
+  printArea.style.display = 'none';
+}
+
+function formatForPrint(text, docLabel) {
+  const lines = text.split('\n');
+  let html = `<div style="margin-bottom:8px;font-size:8pt;color:#666;text-align:right;">Generated ${docLabel} · Resume Analyzer</div>`;
+  let inList = false;
+  for (const raw of lines) {
+    const line = raw.trimEnd();
+    if (!line) {
+      if (inList) { html += '</ul>'; inList = false; }
+      html += "<div style='height:4pt'></div>";
+      continue;
+    }
+    if (/^[-─═]{4,}$/.test(line)) {
+      html += `<hr style="border:none;border-top:1.5px solid #222;margin:2pt 0 6pt;" />`;
+      continue;
+    }
+    if (line === line.toUpperCase() && line.length > 3 && /[A-Z]/.test(line) && !/^[–•\-]/.test(line)) {
+      if (inList) { html += '</ul>'; inList = false; }
+      html += `<h2 style="font-family:Arial,sans-serif;font-size:10pt;font-weight:700;letter-spacing:0.08em;margin:14pt 0 2pt;text-transform:uppercase;">${escHtml(line)}</h2>`;
+      continue;
+    }
+    if (/^[–•\-]\s/.test(line)) {
+      if (!inList) { html += `<ul style="margin:3pt 0 3pt 14pt;padding:0;">`; inList = true; }
+      html += `<li style="margin-bottom:2pt;font-size:10pt;">${escHtml(line.replace(/^[–•\-]\s/, ''))}</li>`;
+      continue;
+    }
+    if (inList) { html += '</ul>'; inList = false; }
+    html += `<p style="font-size:10pt;margin:2pt 0;">${escHtml(line)}</p>`;
+  }
+  if (inList) html += '</ul>';
+  return html;
+}
+
+function resetResults() {
+  document.getElementById('results-wrap').classList.remove('visible');
+  document.getElementById('results-container').innerHTML = '';
+  document.getElementById('progress-wrap').classList.remove('visible');
+  document.getElementById('pdf-output-section').style.display = 'none';
+  document.getElementById('pdf-document').innerHTML = '';
+  if (document.getElementById('cover-letter-section')) document.getElementById('cover-letter-section').style.display = 'none';
+  document.getElementById('review-section').classList.remove('visible');
+  document.getElementById('linkedin-section').classList.remove('visible');
+  document.getElementById('cover-letter-gen-section').classList.remove('visible');
+  document.getElementById('interview-section').classList.remove('visible');
+  document.getElementById('email-section').classList.remove('visible');
+  document.getElementById('linkedin-output').classList.remove('visible');
+  document.getElementById('doc-editor').value = '';
+  document.getElementById('feedback-input').value = '';
+  _analysisCtx = null; revisionCount = 1; revisionHistory = []; isApproved = false; approvedDoc = null;
+  window._lastResults = null;
+}
+
+function resetAll() {
+  removeFile({ stopPropagation: () => {} });
+  document.getElementById('run-btn').textContent = 'Analyze Resume';
+}
+
+function toggleExtractPreview(btn) {
+  btn.classList.toggle('open');
+  btn.textContent = btn.classList.contains('open')
+    ? '▴ Hide extracted text'
+    : '▾ Preview extracted text — verify before running';
+}
+
+function copyCompanyResearch(e) {
+  const text = document.getElementById('cover-letter-preview').textContent;
+  if (text) navigator.clipboard.writeText(text).catch(() => {});
+  const btn = e.target;
+  btn.textContent = 'Copied!';
+  setTimeout(() => { btn.textContent = 'Copy'; }, 1800);
+}
+
+
+// ══════════════════════════════════════════════════════
+// REVIEW, REVISION & APPROVAL
+// ══════════════════════════════════════════════════════
+
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
+
+function copyDocument() {
+  const text = document.getElementById('doc-editor').value;
+  if (text) navigator.clipboard.writeText(text).catch(() => {});
+  const btn = event.target;
+  btn.textContent = 'Copied!';
+  setTimeout(() => btn.textContent = 'Copy', 1800);
+}
+
+async function applyFeedback() {
+  const feedback = document.getElementById('feedback-input').value.trim();
+  if (!feedback) return;
+  const currentDoc = document.getElementById('doc-editor').value.trim();
+  if (!currentDoc) return;
+  if (isRevising) return;
+
+  isRevising = true;
+  document.getElementById('apply-feedback-btn').disabled = true;
+  document.getElementById('feedback-input').disabled = true;
+  document.getElementById('revision-spinner').classList.add('visible');
+  document.getElementById('revision-label').textContent = 'Applying feedback…';
+
+  // Save current version for undo
+  revisionHistory.push(currentDoc);
+
+  try {
+    const role     = document.getElementById('ctx-role').value.trim()     || 'not specified';
+    const industry = document.getElementById('ctx-industry').value.trim() || 'the candidate\'s industry';
+    const label    = currentDocType === 'cv' ? 'CV' : 'resume';
+    const jd       = document.getElementById('jd-input').value.trim();
+
+    // Build context from analysis for richer revisions
+    const analysisCtxSnip = _analysisCtx
+      ? [
+          _analysisCtx.levelsignal ? '=== LEVEL SIGNALS ===\n' + _analysisCtx.levelsignal.slice(0, 800) : '',
+          _analysisCtx.narrative   ? '=== CAREER NARRATIVE ===\n' + _analysisCtx.narrative.slice(0, 800) : '',
+          _analysisCtx.voice       ? '=== VOICE AUDIT ===\n' + _analysisCtx.voice.slice(0, 600) : '',
+        ].filter(Boolean).join('\n\n')
+      : '';
+
+    const systemPrompt = 'You are a professional resume editor for ' + industry + '. ' +
+      'Target role: ' + role + '. Document type: ' + label + '.' +
+      (jd ? '\n\nJob description context:\n""\n' + jd.slice(0, 600) + '\n""' : '') +
+      (analysisCtxSnip ? '\n\nAnalysis context (use to inform edits):\n' + analysisCtxSnip : '') +
+      '\n\nYou will receive the current document and a feedback request. ' +
+      'Make ONLY the changes described in the feedback. Preserve everything else exactly as written. ' +
+      'Do not reformat, rewrite, or improve sections not mentioned in the feedback. ' +
+      'AUTHENTICITY: Never change the factual context of any experience. ' +
+      'Return only the revised document — no commentary, no preamble.';
+
+    const userMsg = 'CURRENT DOCUMENT:\n""\n' + currentDoc + '\n""\n\nFEEDBACK TO APPLY:\n' + feedback;
+
+    const revised = await callAI(systemPrompt, userMsg);
+
+    revisionCount++;
+    document.getElementById('doc-editor').value = revised;
+    document.getElementById('revision-counter').textContent = 'Version ' + revisionCount;
+    document.getElementById('feedback-input').value = '';
+    document.getElementById('feedback-input').style.height = 'auto';
+
+    // Update PDF print area with revised content
+    document.getElementById('pdf-document').innerHTML = formatForPrint(revised, label.charAt(0).toUpperCase() + label.slice(1));
+
+    // If was approved, un-approve since document changed
+    if (isApproved) {
+      isApproved = false;
+      approvedDoc = null;
+      document.getElementById('approve-btn').textContent = '✓ Approve & Generate LinkedIn';
+      document.getElementById('approve-btn').classList.remove('approved');
+      document.getElementById('linkedin-section').classList.remove('visible');
+  document.getElementById('cover-letter-gen-section').classList.remove('visible');
+  document.getElementById('interview-section').classList.remove('visible');
+  document.getElementById('email-section').classList.remove('visible');
+    }
+
+  } catch (e) {
+    alert('Revision failed: ' + e.message);
+    // Restore previous version on failure
+    if (revisionHistory.length > 0) {
+      document.getElementById('doc-editor').value = revisionHistory.pop();
+    }
+  } finally {
+    isRevising = false;
+    document.getElementById('apply-feedback-btn').disabled = false;
+    document.getElementById('feedback-input').disabled = false;
+    document.getElementById('revision-spinner').classList.remove('visible');
+  }
+}
+
+function toggleApprove() {
+  if (isApproved) {
+    // Unapprove — unlock for editing
+    isApproved = false;
+    approvedDoc = null;
+    document.getElementById('doc-editor').readOnly = false;
+    document.getElementById('feedback-input').disabled = false;
+    document.getElementById('apply-feedback-btn').disabled = false;
+    document.getElementById('feedback-row').style.display = 'flex';
+    document.getElementById('feedback-note').style.display = 'block';
+    document.getElementById('approve-btn').textContent = '✓ Approve & Generate LinkedIn';
+    document.getElementById('approve-btn').classList.remove('approved');
+    document.getElementById('linkedin-section').classList.remove('visible');
+  document.getElementById('cover-letter-gen-section').classList.remove('visible');
+  document.getElementById('interview-section').classList.remove('visible');
+  document.getElementById('email-section').classList.remove('visible');
+    document.getElementById('cover-letter-gen-section').classList.remove('visible');
+    document.getElementById('interview-section').classList.remove('visible');
+  } else {
+    // Approve — lock document and reveal LinkedIn generator
+    const doc = document.getElementById('doc-editor').value.trim();
+    if (!doc) return;
+    isApproved = true;
+    approvedDoc = doc;
+    document.getElementById('doc-editor').readOnly = true;
+    document.getElementById('feedback-input').disabled = true;
+    document.getElementById('apply-feedback-btn').disabled = true;
+    document.getElementById('feedback-row').style.display = 'none';
+    document.getElementById('feedback-note').style.display = 'none';
+    document.getElementById('approve-btn').textContent = '✓ Approved';
+    document.getElementById('approve-btn').classList.add('approved');
+    // Show unapprove option
+    const unapproveBtn = document.getElementById('unapprove-btn');
+    if (unapproveBtn) unapproveBtn.style.display = 'inline-block';
+    // Show LinkedIn section and post-approval tools
+    document.getElementById('linkedin-section').classList.add('visible');
+    document.getElementById('cover-letter-gen-section').classList.add('visible');
+    document.getElementById('interview-section').classList.add('visible');
+    document.getElementById('email-section').classList.add('visible');
+    document.getElementById('linkedin-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// LINKEDIN GENERATION
+// ══════════════════════════════════════════════════════
+
+function buildLinkedInPrompt(approvedDoc) {
+  const role     = document.getElementById('ctx-role').value.trim()     || 'not specified';
+  const industry = document.getElementById('ctx-industry').value.trim() || 'the candidate\'s industry';
+  const isCV     = currentDocType === 'cv';
+  const jd       = document.getElementById('jd-input').value.trim();
+  const company  = document.getElementById('ctx-company').value.trim();
+
+  return 'You are a LinkedIn profile strategist for ' + industry + '. Target role: ' + role + '.' +
+    '\n\nThe candidate has an approved ' + (isCV ? 'CV' : 'resume') + ' shown below. ' +
+    'Generate ALL FIVE LinkedIn sections in a single response. ' +
+    'LinkedIn is different from a resume in these critical ways:' +
+    '\n- Written in first person (I, my, me) — not third-person implied voice' +
+    '\n- Conversational and human — not formal document language' +
+    '\n- General audience — not just recruiters; clients, collaborators, peers will read this' +
+    '\n- Full career history is shown — no triage rules, no dropping roles' +
+    '\n- Optimized for LinkedIn search and discovery, not ATS parsing' +
+    '\n- Experience entries are shorter and more narrative than resume bullets' +
+    (jd ? '\n- Still reflect alignment to: ' + role + ' but in a general-audience voice' : '') +
+    (company ? '\n- The candidate is targeting ' + company + ' — subtle alignment is appropriate but this is a general profile, not a company-specific one' : '') +
+    '\n\nAPPROVED DOCUMENT:\n""\n' + approvedDoc + '\n""' +
+    '\n\nGenerate the following five sections. Label each clearly with === SECTION NAME ===\n\n' +
+    '=== HEADLINE ===' +
+    '\nProvide 3 headline variations.' +
+    '\nConstraints: max 220 characters each, no buzzwords (no \'passionate\', \'results-driven\', \'dynamic\'), clear positioning (what I do + who I help), include relevant keywords.' +
+    '\nLabel each variation and include character count in brackets. Add one sentence explaining the angle.' +
+    '\n\n=== ABOUT ===' +
+    '\nWrite the LinkedIn About section.' +
+    '\nStructure: (1) Opening hook — one compelling sentence about what you do or the problem you solve. (2) What you specialize in. (3) 2–3 specific achievements or examples of impact. (4) Who should connect with you and why.' +
+    '\nRules: First person. Conversational but professional. 150–200 words. No generic phrases. End with a clear CTA.' +
+    '\n\n=== EXPERIENCE ===' +
+    '\nWrite LinkedIn-style experience descriptions for every role from the document.' +
+    '\nFor each role: job title, company, and a 2–4 sentence narrative description followed by 2–3 bullet points.' +
+    '\nTone is slightly more narrative and human than resume bullets. Still accurate — never change the factual context of any role.' +
+    '\nAll roles included — no triage, no condensing, no dropping.' +
+    '\nFormat each as: JOB TITLE at COMPANY (dates)\n[description]\n[bullets]' +
+    '\n\n=== SKILLS ===' +
+    '\nProvide a list of 30–50 skills for the LinkedIn Skills section.' +
+    '\nOrganize by category with labels: Technical Skills, Domain Knowledge, Tools & Platforms, Soft Skills / Leadership.' +
+    '\nOptimized for LinkedIn search and endorsement visibility.' +
+    '\nList as comma-separated items within each category.' +
+    '\n\n=== FEATURED ===' +
+    '\nProvide 3–5 specific recommendations for what to pin in the LinkedIn Featured section.' +
+    '\nFor each: what to pin, why it strengthens this candidate\'s profile, and how to frame the caption.' +
+    '\nBased on the candidate\'s background. If no obvious content exists for a slot, suggest creating it (e.g. a short LinkedIn article, a portfolio piece).' +
+    '\n\n=== SETTINGS AND RECOMMENDATIONS ===' +
+    '\nProvide two things:' +
+    '\n\nPART A — OPEN TO WORK SETTINGS' +
+    '\nAdvise on the Open to Work feature:' +
+    '\n- Green banner (public): visible to everyone including the current employer. Recommend only if the candidate is comfortable with their employer knowing, or if they are unemployed.' +
+    '\n- Recruiters only (private): visible only to LinkedIn Recruiter users. Generally safer for employed candidates.' +
+    '\n- Recommendation for THIS candidate based on their situation (employed vs between roles, seniority level, industry norms).' +
+    '\n- Which job titles, locations, and work types (remote/hybrid/on-site) to select in the settings.' +
+    '\n\nPART B — RECOMMENDATION REQUEST TEMPLATES' +
+    '\nWrite three LinkedIn recommendation request messages:' +
+    '\n1. TO A FORMER MANAGER — professional, specific about what you hope they will speak to, easy for them to write.' +
+    '\n2. TO A PEER OR COLLEAGUE — more conversational, references a specific project or collaboration.' +
+    '\n3. TO A DIRECT REPORT (if applicable based on the document) — asks them to speak to your leadership style and impact.' +
+    '\nEach message: 4-6 sentences. Warm but professional. Gives the writer enough context without being prescriptive.';
+}
+
+async function generateLinkedIn() {
+  if (!isApproved || !approvedDoc) return;
+
+  document.getElementById('generate-linkedin-btn').disabled = true;
+  document.getElementById('linkedin-progress').classList.add('visible');
+  document.getElementById('linkedin-progress-label').textContent = 'Generating LinkedIn sections…';
+  document.getElementById('linkedin-output').classList.remove('visible');
+
+  try {
+    const prompt = buildLinkedInPrompt(approvedDoc);
+    // LinkedIn needs higher token budget — 5 sections for long careers can be substantial
+    const result = await callAIHighTokens(prompt, 'Generate all five LinkedIn sections now.');
+
+    // Parse the six sections
+    const sections = {
+      headline:   extractLinkedInSection(result, 'HEADLINE'),
+      about:      extractLinkedInSection(result, 'ABOUT'),
+      experience: extractLinkedInSection(result, 'EXPERIENCE'),
+      skills:     extractLinkedInSection(result, 'SKILLS'),
+      featured:   extractLinkedInSection(result, 'FEATURED'),
+      settings:   extractLinkedInSection(result, 'SETTINGS AND RECOMMENDATIONS'),
+    };
+
+    // Populate subsections
+    Object.keys(sections).forEach(function(key) {
+      const el = document.getElementById('li-body-' + key);
+      if (el) el.textContent = sections[key] || '(Section not generated — try regenerating)';
+    });
+
+    document.getElementById('linkedin-output').classList.add('visible');
+
+  } catch (e) {
+    alert('LinkedIn generation failed: ' + e.message);
+  } finally {
+    document.getElementById('generate-linkedin-btn').disabled = false;
+    document.getElementById('linkedin-progress').classList.remove('visible');
+  }
+}
+
+function extractLinkedInSection(text, sectionName) {
+  // Extract content between === SECTION === markers
+  const startMarker = '=== ' + sectionName + ' ===';
+  const start = text.indexOf(startMarker);
+  if (start === -1) return '';
+  const afterStart = start + startMarker.length;
+  // Find next === marker
+  const nextSection = text.indexOf('\n=== ', afterStart);
+  const end = nextSection > 0 ? nextSection : text.length;
+  return text.slice(afterStart, end).trim();
+}
+
+function toggleLinkedInSection(key) {
+  const body = document.getElementById('li-body-' + key);
+  if (body) body.classList.toggle('collapsed');
+  const head = document.getElementById('li-sec-' + key);
+  if (head) {
+    const chev = head.querySelector('.chevron');
+    if (chev) chev.style.transform = body.classList.contains('collapsed') ? 'rotate(-90deg)' : '';
+  }
+}
+
+function copyLinkedInSection(e, key) {
+  e.stopPropagation();
+  const text = document.getElementById('li-body-' + key);
+  if (text) navigator.clipboard.writeText(text.textContent).catch(() => {});
+  const btn = e.target;
+  btn.textContent = 'Copied!';
+  setTimeout(() => btn.textContent = 'Copy', 1800);
+}
+
+// ══════════════════════════════════════════════════════
+// COVER LETTER GENERATOR
+// ══════════════════════════════════════════════════════
+
+function buildCoverLetterPrompt(approvedDoc) {
+  var role     = document.getElementById('ctx-role').value.trim()     || 'the target role';
+  var industry = document.getElementById('ctx-industry').value.trim() || 'their industry';
+  var company  = document.getElementById('ctx-company').value.trim();
+  var jd       = document.getElementById('jd-input').value.trim();
+  var isCV     = currentDocType === 'cv';
+  var NL = String.fromCharCode(10);
+
+  var companyResearch = (_analysisCtx && _analysisCtx.company)
+    ? NL + NL + 'COMPANY RESEARCH (use to personalize the letter):' + NL + _analysisCtx.company.slice(0, 1200)
+    : '';
+  var jdContext = jd
+    ? NL + NL + 'JOB DESCRIPTION:' + NL + '""' + NL + jd.slice(0, 800) + NL + '""'
+    : '';
+  var levelCtx = (_analysisCtx && _analysisCtx.levelsignal)
+    ? NL + NL + 'LEVEL & COMPENSATION SIGNALS (for tone calibration):' + NL + _analysisCtx.levelsignal.slice(0, 600)
+    : '';
+
+  return 'You are a professional cover letter writer for ' + industry + '.' +
+    ' The candidate is applying for: ' + role + (company ? ' at ' + company : '') + '.' +
+    jdContext + companyResearch + levelCtx +
+    NL + NL + 'APPROVED ' + (isCV ? 'CV' : 'RESUME') + ':' + NL + '""' + NL + approvedDoc + NL + '""' +
+    NL + NL + 'Write a professional, personalized cover letter.' +
+    NL + NL + 'STRUCTURE:' +
+    NL + '[Date]' +
+    NL + '[Hiring Manager Name] (use "Hiring Manager" if unknown)' +
+    NL + '[Company Name]' +
+    NL + NL + 'Dear [Hiring Manager Name or "Hiring Team"],' +
+    NL + NL + 'Paragraph 1 — OPENING HOOK (2-3 sentences): A specific compelling reason this candidate fits this role. Reference something real about the company if research is available. Never open with "I am writing to apply for..."' +
+    NL + NL + 'Paragraph 2 — STRONGEST EVIDENCE (3-4 sentences): The single most relevant achievement from the resume with context. Use a concrete metric if available.' +
+    NL + NL + 'Paragraph 3 — SECONDARY EVIDENCE + FIT (3-4 sentences): A second relevant strength, plus why the candidate is drawn to this company. If company research exists, reference something specific.' +
+    NL + NL + 'Paragraph 4 — CLOSING (2-3 sentences): Confident, not desperate. Express interest in discussing further. Light call to action.' +
+    NL + NL + 'Sincerely,' +
+    NL + '[Candidate Name]' +
+    NL + NL + 'RULES:' +
+    NL + '- First person throughout (I, my, me)' +
+    NL + '- Confident but warm professional tone' +
+    NL + '- Specific over generic at every opportunity' +
+    NL + '- Never mention salary in the letter' +
+    NL + '- Never repeat the full resume — reference selectively' +
+    NL + '- 300-400 words total' +
+    NL + '- AUTHENTICITY: Never claim experience the resume does not support';
+}
+
+async function generateCoverLetter() {
+  if (!isApproved || !approvedDoc) return;
+  var btn = document.getElementById('generate-cl-btn');
+  btn.disabled = true;
+  document.getElementById('cl-spinner').classList.add('visible');
+  document.getElementById('cl-output').classList.remove('visible');
+  try {
+    var prompt = buildCoverLetterPrompt(approvedDoc);
+    var result = await callAIHighTokens(prompt, 'Write the cover letter now.');
+    document.getElementById('cl-body').textContent = result;
+    document.getElementById('cl-output').classList.add('visible');
+  } catch(e) {
+    alert('Cover letter generation failed: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    document.getElementById('cl-spinner').classList.remove('visible');
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// INTERVIEW PREP + STAR STORIES
+// ══════════════════════════════════════════════════════
+
+function buildInterviewPrepPrompt(approvedDoc) {
+  var role     = document.getElementById('ctx-role').value.trim()     || 'the target role';
+  var industry = document.getElementById('ctx-industry').value.trim() || 'their industry';
+  var company  = document.getElementById('ctx-company').value.trim();
+  var jd       = document.getElementById('jd-input').value.trim();
+  var NL = String.fromCharCode(10);
+
+  var jdContext  = jd ? NL + NL + 'JOB DESCRIPTION:' + NL + '""' + NL + jd.slice(0,800) + NL + '""' : '';
+  var companyCtx = (_analysisCtx && _analysisCtx.company) ? NL + NL + 'COMPANY RESEARCH:' + NL + _analysisCtx.company.slice(0,800) : '';
+  var levelCtx   = (_analysisCtx && _analysisCtx.levelsignal) ? NL + NL + 'LEVEL SIGNALS:' + NL + _analysisCtx.levelsignal.slice(0,600) : '';
+
+  return 'You are a career coach and interview strategist for ' + industry + '.' +
+    ' The candidate is preparing to interview for: ' + role + (company ? ' at ' + company : '') + '.' +
+    jdContext + companyCtx + levelCtx +
+    NL + NL + 'APPROVED RESUME/CV:' + NL + '""' + NL + approvedDoc + NL + '""' +
+    NL + NL + 'Generate three sections. Label each clearly with === SECTION NAME ===' +
+    NL + NL + '=== LIKELY INTERVIEW QUESTIONS ===' +
+    NL + 'Generate 12-15 likely interview questions in four categories:' +
+    NL + NL + 'ROLE-SPECIFIC TECHNICAL (4-5 questions): Substantive questions testing knowledge specific to ' + role + ' in ' + industry + '.' +
+    NL + 'BEHAVIORAL (4-5 questions): "Tell me about a time when..." questions based on what this role and level requires. Draw from the candidate\'s actual experience to predict what they will be asked about.' +
+    NL + 'SITUATIONAL (2-3 questions): "What would you do if..." hypotheticals relevant to challenges in this role.' +
+    NL + 'CURVEBALLS (2 questions): Questions about anything unusual in this candidate\'s history — gaps, pivots, short tenures — that a recruiter is likely to probe.' +
+    NL + NL + 'For each question add one line: WHY THEY ASK THIS — what the interviewer is actually trying to learn.' +
+    NL + NL + '=== STAR STORIES ===' +
+    NL + 'Pull 5-6 of the strongest achievements from the resume and build them into full STAR stories:' +
+    NL + 'SITUATION: Context — what was the environment or challenge? (2-3 sentences)' +
+    NL + 'TASK: What were you specifically responsible for? (1-2 sentences)' +
+    NL + 'ACTION: What did YOU do? First person, specific. (3-4 sentences)' +
+    NL + 'RESULT: What happened? Use the metric from the resume. What did it mean for the business? (2-3 sentences)' +
+    NL + 'USE WHEN: Which interview questions this story best answers.' +
+    NL + NL + 'Never invent details not in the resume. If a metric is missing, write [add your number here] as a placeholder.' +
+    NL + NL + '=== SALARY NEGOTIATION ===' +
+    NL + '1. POSITIONING STATEMENT: 2-3 sentences for when asked "What are your salary expectations?" — confident, non-committal on first ask, anchored to value.' +
+    NL + '2. LEVERAGE POINTS: 3-4 specific achievements or credentials from the resume that justify top-of-range compensation.' +
+    NL + '3. TIMING GUIDANCE: When to bring up compensation, when not to, how to handle early pressure to name a number.' +
+    NL + '4. COUNTER-OFFER LANGUAGE: If the first offer comes in low — specific, professional, non-adversarial language to use.' +
+    NL + '5. BEYOND BASE SALARY: 3-4 other negotiable elements (equity, signing bonus, title, remote flexibility, review timing, professional development budget).';
+}
+
+async function generateInterviewPrep() {
+  if (!isApproved || !approvedDoc) return;
+  var btn = document.getElementById('generate-interview-btn');
+  btn.disabled = true;
+  document.getElementById('interview-spinner').classList.add('visible');
+  document.getElementById('interview-output').classList.remove('visible');
+  try {
+    var docType = currentDocType === 'cv' ? 'CV' : 'resume';
+    var prompt = buildInterviewPrepPrompt(approvedDoc);
+    var result = await callAIHighTokens(prompt, 'Generate all three sections now. The candidate has a ' + docType + '.');
+    document.getElementById('int-body-questions').textContent = extractSection(result, 'LIKELY INTERVIEW QUESTIONS');
+    document.getElementById('int-body-star').textContent      = extractSection(result, 'STAR STORIES');
+    document.getElementById('int-body-salary').textContent    = extractSection(result, 'SALARY NEGOTIATION');
+    document.getElementById('interview-output').classList.add('visible');
+  } catch(e) {
+    alert('Interview prep generation failed: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    document.getElementById('interview-spinner').classList.remove('visible');
+  }
+}
+
+function extractSection(text, sectionName) {
+  var startMarker = '=== ' + sectionName + ' ===';
+  var start = text.indexOf(startMarker);
+  if (start === -1) return '(Section not found — try regenerating)';
+  var afterStart = start + startMarker.length;
+  var nextSection = text.indexOf('\n=== ', afterStart);
+  return text.slice(afterStart, nextSection > 0 ? nextSection : text.length).trim();
+}
+
+function toggleToolSection(bodyId) {
+  var el = document.getElementById(bodyId);
+  if (el) el.classList.toggle('collapsed');
+}
+
+function copyToolSection(e, bodyId) {
+  e.stopPropagation();
+  var el = document.getElementById(bodyId);
+  if (el) navigator.clipboard.writeText(el.textContent).catch(function(){});
+  var btn = e.target;
+  btn.textContent = 'Copied!';
+  setTimeout(function(){ btn.textContent = 'Copy'; }, 1800);
+}
+
+
+// ══════════════════════════════════════════════════════
+// EMAIL TEMPLATES
+// ══════════════════════════════════════════════════════
+
+function buildEmailPrompt() {
+  var role     = document.getElementById('ctx-role').value.trim()     || 'the target role';
+  var industry = document.getElementById('ctx-industry').value.trim() || 'their industry';
+  var company  = document.getElementById('ctx-company').value.trim()  || 'the company';
+  var NL = String.fromCharCode(10);
+
+  var companyCtx = (_analysisCtx && _analysisCtx.company)
+    ? NL + NL + 'COMPANY RESEARCH (use for personalization):' + NL + _analysisCtx.company.slice(0, 600)
+    : '';
+
+  return 'You are a career coach writing post-interview email templates for a candidate in ' + industry + '.' +
+    ' They interviewed for: ' + role + ' at ' + company + '.' + companyCtx +
+    NL + NL + 'Write three email templates. Label each with === SECTION NAME ===' +
+    NL + NL + '=== THANK-YOU NOTE ===' +
+    NL + 'A same-day thank-you email to send within 2 hours of the interview.' +
+    NL + 'STRUCTURE:' +
+    NL + 'Subject: [suggest a subject line]' +
+    NL + 'Body: 3 short paragraphs:' +
+    NL + '1. Genuine thanks + one specific thing you appreciated about the conversation — leave a [SPECIFIC TOPIC DISCUSSED] placeholder so they can personalize it.' +
+    NL + '2. One brief sentence reinforcing why you are excited about this role — reference something real about the company or role.' +
+    NL + '3. Confident close — you look forward to next steps, available for any follow-up questions.' +
+    NL + 'Tone: warm, genuine, professional. Not sycophantic. Under 150 words.' +
+    NL + NL + '=== FOLLOW-UP EMAIL ===' +
+    NL + 'A follow-up email to send after 7-10 business days of silence.' +
+    NL + 'STRUCTURE:' +
+    NL + 'Subject: [suggest a subject line]' +
+    NL + 'Body: 2 short paragraphs:' +
+    NL + '1. Brief reference to the interview date and role, express continued strong interest.' +
+    NL + '2. Ask for a status update, offer to provide any additional information. Clean close.' +
+    NL + 'Tone: confident and professional, not apologetic or desperate. Under 100 words.' +
+    NL + NL + '=== LINKEDIN CONNECTION REQUEST ===' +
+    NL + 'A LinkedIn connection request message to the interviewer (character limit: 300).' +
+    NL + 'Short, personal, not a follow-up pitch — this is about building a genuine connection.' +
+    NL + 'Reference the interview or something you discussed. Make it feel human, not templated.' +
+    NL + 'Include a [INTERVIEWER NAME] placeholder. Under 250 characters to be safe.';
+}
+
+async function generateEmailTemplates() {
+  if (!isApproved || !approvedDoc) return;
+  var btn = document.getElementById('generate-email-btn');
+  btn.disabled = true;
+  document.getElementById('email-spinner').classList.add('visible');
+  document.getElementById('email-output').classList.remove('visible');
+  try {
+    var prompt = buildEmailPrompt();
+    var result = await callAI(prompt, 'Generate all three email templates now.');
+    document.getElementById('email-body-thankyou').textContent = extractSection(result, 'THANK-YOU NOTE');
+    document.getElementById('email-body-followup').textContent = extractSection(result, 'FOLLOW-UP EMAIL');
+    document.getElementById('email-body-linkedin').textContent = extractSection(result, 'LINKEDIN CONNECTION REQUEST');
+    document.getElementById('email-output').classList.add('visible');
+  } catch(e) {
+    alert('Email template generation failed: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    document.getElementById('email-spinner').classList.remove('visible');
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// ONE-PAGE RESUME GENERATOR
+// ══════════════════════════════════════════════════════
+
+function buildOnePagePrompt(fullDoc) {
+  var role     = document.getElementById('ctx-role').value.trim()     || 'the target role';
+  var industry = document.getElementById('ctx-industry').value.trim() || 'their industry';
+  var jd       = document.getElementById('jd-input').value.trim();
+  var NL = String.fromCharCode(10);
+
+  var triageCtx = (_analysisCtx && _analysisCtx.triage)
+    ? NL + NL + 'ROLE RELEVANCE TRIAGE (honor these decisions):' + NL + _analysisCtx.triage.slice(0, 800)
+    : '';
+  var levelCtx = (_analysisCtx && _analysisCtx.levelsignal)
+    ? NL + NL + 'LEVEL SIGNALS (maintain this positioning):' + NL + _analysisCtx.levelsignal.slice(0, 400)
+    : '';
+  var jdCtx = jd ? NL + NL + 'JOB DESCRIPTION (prioritize alignment):' + NL + jd.slice(0, 600) : '';
+
+  return 'You are a resume editor creating a tight 1-page version for a ' + industry + ' candidate targeting: ' + role + '.' +
+    triageCtx + levelCtx + jdCtx +
+    NL + NL + 'FULL DOCUMENT:' + NL + '""' + NL + fullDoc + NL + '""' +
+    NL + NL + 'Create an aggressively trimmed 1-page resume. Rules:' +
+    NL + '- Keep: Contact/header, Professional Summary (max 3 lines), Core Competencies (10-12 most relevant keywords only), most recent 10 years of experience (2-3 bullets per role maximum), Education, most critical certification only' +
+    NL + '- Cut: roles older than 10 years, supporting sections (projects, publications, awards) unless they are a primary differentiator for this role, any bullet that is not in the top 2-3 most impactful per role' +
+    NL + '- Ruthlessly prioritize: what matters most for ' + role + ' stays; everything else goes' +
+    NL + '- Maintain all the same formatting conventions (ALL CAPS headers, dashes, bullet format)' +
+    NL + '- Do NOT invent new content — only cut and condense from the existing document' +
+    NL + '- The result must read as a complete, professional resume — not a truncated one' +
+    NL + 'Output the 1-page document only. No commentary.';
+}
+
+async function generateOnePage() {
+  if (currentDocType === 'cv') {
+    alert('A 1-page version is not appropriate for a CV. CVs are comprehensive documents with no page limit — condensing one to a single page would defeat its purpose. If you need a shorter document for a specific application, consider switching to Resume mode and re-running the analysis.');
+    return;
+  }
+  var fullDoc = document.getElementById('doc-editor').value.trim();
+  if (!fullDoc) { alert('Generate the full document first before creating a 1-page version.'); return; }
+
+  var btn = document.getElementById('generate-1page-btn');
+  btn.disabled = true;
+  document.getElementById('onepage-spinner').classList.add('visible');
+
+  try {
+    var prompt = buildOnePagePrompt(fullDoc);
+    var result = await callAI(prompt, 'Generate the 1-page version now.');
+    document.getElementById('doc-editor-1page').value = result;
+    // Switch to 1-page tab
+    switchEditorTab('1page');
+  } catch(e) {
+    alert('1-page generation failed: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    document.getElementById('onepage-spinner').classList.remove('visible');
+  }
+}
+
+function switchEditorTab(tab) {
+  var fullEditor   = document.getElementById('doc-editor');
+  var pageEditor   = document.getElementById('doc-editor-1page');
+  var tabFull      = document.getElementById('tab-full');
+  var tab1page     = document.getElementById('tab-1page');
+
+  if (tab === 'full') {
+    fullEditor.style.display = '';
+    pageEditor.style.display = 'none';
+    tabFull.classList.add('active');
+    tab1page.classList.remove('active');
+  } else {
+    fullEditor.style.display = 'none';
+    pageEditor.style.display = '';
+    tabFull.classList.remove('active');
+    tab1page.classList.add('active');
+  }
+}
+
+
+function showError(msg) {
+  const box = document.getElementById('error-box');
+  box.textContent = msg; box.classList.add('visible');
+}
+function clearError() { document.getElementById('error-box').classList.remove('visible'); }
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+</script>
+</body>
+</html>
