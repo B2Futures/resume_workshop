@@ -902,7 +902,7 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', system-u
     <div>
       <div class="wordmark">
         <span class="wordmark-main">Resume Analyzer</span>
-        <span class="wordmark-tag">Auto</span>
+        <span class="wordmark-tag">Auto</span><span class="wordmark-tag" style="background:#0f3020;border-color:#22c55e;color:#4ade80;margin-left:4px;">LinkedIn v2</span>
       </div>
       <p class="header-sub">Drop a resume or CV — get a full AI audit and a job-targeted document output.</p>
     </div>
@@ -3304,34 +3304,59 @@ function toggleApprove() {
 
 function buildLinkedInPrompt(approvedDoc) {
   const role     = document.getElementById('ctx-role').value.trim()     || 'not specified';
-  const industry = document.getElementById('ctx-industry').value.trim() || 'the candidate\'s industry';
+  const industry = document.getElementById('ctx-industry').value.trim() || "the candidate's industry";
   const isCV     = currentDocType === 'cv';
   const jd       = document.getElementById('jd-input').value.trim();
   const company  = document.getElementById('ctx-company').value.trim();
 
+  // v2: Pull experience rewrite (tone anchor) and triage (full role list)
+  const expRewrite = (_analysisCtx && _analysisCtx.experience)
+    ? _analysisCtx.experience.slice(0, mode === 'lm' ? 3000 : 99999)
+    : '';
+  const triageOut  = (_analysisCtx && _analysisCtx.triage)
+    ? _analysisCtx.triage.slice(0, mode === 'lm' ? 2000 : 99999)
+    : '';
+
+  const expContext = (expRewrite || triageOut)
+    ? ('\n\nEXPERIENCE SOURCE MATERIAL (v2):' +
+       (triageOut  ? '\n\n--- ROLE RELEVANCE TRIAGE (complete role list with all roles) ---\n' + triageOut  : '') +
+       (expRewrite ? '\n\n--- REWRITTEN EXPERIENCE (use as tone and quality anchor) ---\n' + expRewrite : ''))
+    : '';
+
   return 'You are a LinkedIn profile strategist for ' + industry + '. Target role: ' + role + '.' +
     '\n\nThe candidate has an approved ' + (isCV ? 'CV' : 'resume') + ' shown below. ' +
-    'Generate ALL FIVE LinkedIn sections in a single response. ' +
-    'LinkedIn is different from a resume in these critical ways:' +
-    '\n- Written in first person (I, my, me) — not third-person implied voice' +
+    '\n\nLinkedIn is different from a resume:' +
+    '\n- Written in first person (I, my, me)' +
     '\n- Conversational and human — not formal document language' +
-    '\n- General audience — not just recruiters; clients, collaborators, peers will read this' +
-    '\n- Full career history is shown — no triage rules, no dropping roles' +
-    '\n- Optimized for LinkedIn search and discovery, not ATS parsing' +
+    '\n- General audience — clients, collaborators, peers, recruiters all read this' +
+    '\n- FULL career history shown — every role from the entire career, not just recent or relevant' +
+    '\n- Optimized for LinkedIn search, not ATS parsing' +
     '\n- Experience entries are shorter and more narrative than resume bullets' +
-    (jd ? '\n- Still reflect alignment to: ' + role + ' but in a general-audience voice' : '') +
-    (company ? '\n- The candidate is targeting ' + company + ' — subtle alignment is appropriate but this is a general profile, not a company-specific one' : '') +
-    '\n\nAPPROVED DOCUMENT:\n""\n' + approvedDoc + '\n""' +
-    '\n\nOutput your response in exactly six labeled sections. Begin each section on its own line with this exact format: === SECTION NAME === '  +
-    '\nThe six section names are: HEADLINE, ABOUT, EXPERIENCE, SKILLS, FEATURED, SETTINGS AND RECOMMENDATIONS'  +
-    '\nDo not add extra === markers inside section content. Do not skip any section.'  +
-    '\n\nHEADLINE: 3 variations. Max 220 chars each. No buzzwords. Character count in brackets. One sentence explaining the angle.'  +
-    '\n\nABOUT: First person. 150-200 words. Opening hook, specialization, 2-3 impact examples, CTA. Conversational.'  +
-    '\n\nEXPERIENCE: Every role. Format each as: JOB TITLE at COMPANY (dates) — then 2-4 sentence narrative — then 2-3 bullets. All roles included. Never change the factual context of any role.'  +
-    '\n\nSKILLS: 30-50 skills by category (Technical Skills, Domain Knowledge, Tools and Platforms, Soft Skills). Comma-separated.'  +
-    '\n\nFEATURED: 3-5 items to pin. For each: what to pin, why it helps, how to caption it.'  +
-    '\n\nSETTINGS AND RECOMMENDATIONS: Three parts — (A) Open to Work settings: green banner vs recruiters-only guidance, which titles/locations/work-types to select. (B) Three recommendation request templates: to a former manager, to a peer, to a direct report. 4-6 sentences each. (C) Profile Completeness checklist for All-Star status: photo, banner, custom URL (linkedin.com/in/firstnamelastname), 500+ connections, endorsements, received recommendation, current position, education.'
+    (jd      ? '\n- Reflect alignment to ' + role + ' but in a general-audience voice' : '') +
+    (company ? '\n- Subtle alignment to ' + company + ' is appropriate, but this is a general profile' : '') +
+    '\n\nAPPROVED DOCUMENT (primary source):\n""\n' + approvedDoc + '\n""' +
+    expContext +
+    '\n\nCRITICAL FOR EXPERIENCE SECTION (v2 instructions):' +
+    '\nThe approved document may only show recent or relevant roles (it was tailored for a job application).' +
+    '\nThe TRIAGE output above contains the COMPLETE role list including every role in the candidate\'s history.' +
+    '\nThe REWRITTEN EXPERIENCE shows the quality and tone standard to match.' +
+    '\n\nFor the EXPERIENCE section, you must:' +
+    '\n1. Include EVERY role from the triage list — not just the ones in the approved document' +
+    '\n2. For roles with strong rewritten content: write a full LinkedIn entry (2-4 sentences + 2-3 bullets) matching that tone' +
+    '\n3. For roles that were condensed, early career, or dropped from the resume: write a shorter LinkedIn entry (1-2 sentences + 1-2 bullets) in the same professional voice' +
+    '\n4. Maintain consistent first-person voice from most recent role back to earliest' +
+    '\n5. Never change the factual context of any role' +
+    '\n\nOutput your response in exactly six labeled sections. Begin each section on its own line with this exact format: === SECTION NAME ===' +
+    '\nThe six section names are: HEADLINE, ABOUT, EXPERIENCE, SKILLS, FEATURED, SETTINGS AND RECOMMENDATIONS' +
+    '\nDo not add extra === markers inside section content. Do not skip any section.' +
+    '\n\nHEADLINE: 3 variations. Max 220 chars each. No buzzwords. Character count in brackets. One sentence explaining the angle.' +
+    '\n\nABOUT: First person. 150-200 words. Opening hook, specialization, 2-3 impact examples, CTA. Conversational.' +
+    '\n\nEXPERIENCE: Follow the v2 instructions above. Every role from triage list. Consistent voice throughout. Format each as: JOB TITLE at COMPANY (dates) — narrative — bullets.' +
+    '\n\nSKILLS: 30-50 skills by category (Technical Skills, Domain Knowledge, Tools and Platforms, Soft Skills). Comma-separated.' +
+    '\n\nFEATURED: 3-5 items to pin. For each: what to pin, why it helps, how to caption it.' +
+    '\n\nSETTINGS AND RECOMMENDATIONS: Three parts — (A) Open to Work: green banner vs recruiters-only guidance, which titles/locations/work-types to select. (B) Three recommendation request templates: former manager, peer, direct report. 4-6 sentences each. (C) Profile Completeness checklist for All-Star status: photo, banner, custom URL, 500+ connections, endorsements, received recommendation, current position, education.';
 }
+
 
 async function generateLinkedIn() {
   if (!isApproved || !approvedDoc) return;
@@ -3343,8 +3368,8 @@ async function generateLinkedIn() {
 
   try {
     const prompt = buildLinkedInPrompt(approvedDoc);
-    // LinkedIn needs higher token budget — 5 sections for long careers can be substantial
-    const result = await callAIHighTokens(prompt, 'Generate all five LinkedIn sections now.');
+    // v2: full career history — higher token budget needed
+    const result = await callAIHighTokens(prompt, 'Generate all six LinkedIn sections now. Include EVERY role from the complete career history in the Experience section.');
 
     // Parse the six sections
     const sections = {
