@@ -140,6 +140,13 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', system-u
   margin: 0 auto;
 }
 
+
+/* ── Results content wrapper — matches content-section padding ── */
+.results-content-wrap {
+  max-width: 860px;
+  margin: 0 auto;
+}
+
 /* ── Fields ── */
 .setup-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 16px; }
 .field label { display: block; font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
@@ -258,8 +265,8 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', system-u
 
 /* ── Results ── */
 #results-wrap { display: none; }
-#results-wrap.visible { display: block; padding: 0 4px; }
-.results-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px; padding: 0 4px 18px; border-bottom: 1px solid var(--border); flex-wrap: wrap; gap: 12px; }
+#results-wrap.visible { display: block; }
+.results-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px; padding-bottom: 18px; border-bottom: 1px solid var(--border); flex-wrap: wrap; gap: 12px; }
 .results-title { font-size: 18px; font-weight: 700; letter-spacing: -0.02em; }
 .results-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .btn-ghost { background: transparent; border: 1px solid var(--border2); border-radius: 7px; padding: 7px 14px; font-size: 12px; font-weight: 600; color: var(--muted); cursor: pointer; font-family: inherit; transition: all 0.15s; }
@@ -268,7 +275,7 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', system-u
 .btn-pdf:hover { background: #0a1e40; }
 
 /* ── Result sections ── */
-.result-section { margin-bottom: 16px; margin-left: 4px; margin-right: 4px; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+.result-section { margin-bottom: 16px; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
 .result-section-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; background: var(--surface); border-bottom: 1px solid var(--border); cursor: pointer; user-select: none; }
 .result-section-head:hover { background: var(--raised); }
 .section-label { display: flex; align-items: center; gap: 10px; }
@@ -298,7 +305,7 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', system-u
 .section-copy:hover { border-color: var(--accent); color: #7eb3ff; }
 
 /* ── PDF / compile section ── */
-.pdf-section { margin-top: 24px; margin-left: 4px; margin-right: 4px; border: 1px solid #1e3a6e; border-radius: 12px; overflow: hidden; }
+.pdf-section { margin-top: 24px; border: 1px solid #1e3a6e; border-radius: 12px; overflow: hidden; }
 .pdf-section-head { padding: 16px 20px; background: #071428; border-bottom: 1px solid #1e3a6e; display: flex; align-items: center; justify-content: space-between; }
 .pdf-section-title { font-size: 14px; font-weight: 700; color: #7eb3ff; }
 .pdf-section-desc  { font-size: 12px; color: var(--muted); margin-top: 2px; }
@@ -313,8 +320,6 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', system-u
 #review-section {
   display: none;
   margin-top: 20px;
-  margin-left: 4px;
-  margin-right: 4px;
   border: 1px solid var(--border2);
   border-radius: 12px;
   overflow: hidden;
@@ -464,12 +469,10 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', system-u
 #linkedin-section {
   display: none;
   margin-top: 20px;
-  margin-left: 4px;
-  margin-right: 4px;
   border: 1px solid #1e3a6e;
   border-radius: 12px;
   overflow: hidden;
-  margin-bottom: 4px;
+  margin-bottom: 0;
 }
 #linkedin-section.visible { display: block; }
 
@@ -610,8 +613,6 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', system-u
   display: none;
   margin-top: 20px;
   margin-bottom: 20px;
-  margin-left: 4px;
-  margin-right: 4px;
   border: 1px solid #1e3a6e;
   border-radius: 12px;
   overflow: hidden;
@@ -1112,7 +1113,6 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', system-u
             <div class="guide-step-desc">Generates six LinkedIn sections: Headline (3 variations), About (first person, 150–200 words, ends with CTA), Experience (all roles, narrative tone, no triage), Skills list (30–50 keywords by category), Featured section recommendations, and Profile Settings — covering Open to Work configuration, three recommendation request templates, and a Profile Completeness checklist (photo, banner, custom URL, 500+ connections, endorsements).</div>
           </div>
         </div>
-        </div>
         <div class="guide-step-card optional">
           <div class="guide-step-badge">
             <div class="guide-step-badge-num opt" style="font-size:14px;">✉</div>
@@ -1379,6 +1379,7 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', system-u
 
   </div><!-- end content-section -->
 
+  <div class="results-content-wrap">
   <div id="results-wrap">
     <div class="results-header">
       <div class="results-title" id="results-title">Analysis Complete</div>
@@ -1386,7 +1387,7 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', system-u
         <button class="btn-ghost" onclick="expandAll()">Expand All</button>
         <button class="btn-ghost" onclick="collapseAll()">Collapse All</button>
         <button class="btn-ghost" onclick="copyAll()">Copy All</button>
-        <button class="btn-pdf" onclick="downloadPdf()">⬇ Download PDF</button>
+        
         <button class="btn-ghost" onclick="resetAll()">New Resume</button>
       </div>
     </div>
@@ -1402,7 +1403,6 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', system-u
         <div class="review-subtitle">Edit directly or describe changes below · Approve when ready to unlock all generators</div>
       </div>
       <div class="review-header-right">
-        <button class="btn-ghost" onclick="downloadPdf()">⬇ Download PDF</button>
         <button class="btn-ghost" onclick="copyDocument()">Copy</button>
         <span class="revision-counter" id="revision-counter">Version 1</span>
         <button class="btn-approve" id="approve-btn" onclick="toggleApprove()">✓ Approve &amp; Unlock Generators</button>
@@ -1621,6 +1621,8 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', system-u
       </div>
     </div>
   </div>
+
+  </div><!-- end results-content-wrap -->
 
   <div id="pdf-print-area" style="display:none;">
     <div class="pdf-document" id="pdf-document"></div>
@@ -2204,43 +2206,70 @@ function buildReconcilePrompt(results) {
   var docLabel = isCV ? 'CV' : 'resume';
   var NL       = String.fromCharCode(10);
 
-  // Split rewrite steps (have actual content) vs analysis steps (have recommendations)
-  // For LM Studio: cap aggressively to stay within 4K-16K context windows
+  // For LM Studio: synthesize checklist directly from completed steps.
+  // Sending full step content overflows small context windows, leaving no room
+  // for output. Instead, build the checklist here — compile still gets full content.
+  if (mode === 'lm') {
+    var rewriteIds  = ['contact','summary','skills','experience','supporting'];
+    var analysisIds = ['triage','transfer','narrative','format','tailoring','levelsignal','voice'];
+    var items = [];
+    var n = 1;
+
+    // Rewrite steps — each becomes a CONTENT REWRITE item
+    STEPS.filter(function(s) { return rewriteIds.indexOf(s.id) !== -1 && results[s.id]; })
+      .forEach(function(s) {
+        items.push('[' + n++ + '] CONTENT REWRITE - ' + s.name + ' - Use rewritten version from ' + s.name + ' step');
+      });
+
+    // Analysis steps — add standard items for each
+    if (results.triage)      items.push('[' + n++ + '] STRUCTURAL FIX - Experience - Apply Role Relevance Triage decisions (Full Write / Condensed / Early Career Group / Drop)');
+    if (results.transfer)    items.push('[' + n++ + '] FRAMING ADJUST - Multiple Sections - Apply Transferable Skills reframes identified in Transfer analysis');
+    if (results.narrative)   items.push('[' + n++ + '] FRAMING ADJUST - Career Narrative - Apply narrative framing and red flag pre-emption language from Narrative step');
+    if (results.format)      items.push('[' + n++ + '] STRUCTURAL FIX - Document Structure - Apply ATS and formatting fixes from Format & Structure step');
+    if (results.tailoring)   items.push('[' + n++ + '] KEYWORD ADD - Multiple Sections - Apply keyword substitutions and JD alignment from Tailoring step');
+    if (results.levelsignal) items.push('[' + n++ + '] FRAMING ADJUST - Experience & Summary - Apply level signal and compensation positioning improvements');
+    if (results.voice)       items.push('[' + n++ + '] CONTENT REWRITE - All Sections - Apply voice and consistency fixes so all sections sound like the same professional');
+    if (results.company)     items.push('[' + n++ + '] FRAMING ADJUST - Summary & Experience - Incorporate company alignment and cover letter hooks from Company Research');
+
+    var checklist = items.join(NL);
+    checklist += NL + NL + 'TOTAL CHANGES: ' + (n - 1) + ' (' + rewriteIds.filter(function(id) { return results[id]; }).length + ' content rewrites, ' + analysisIds.filter(function(id) { return results[id]; }).length + ' analysis items)';
+    return { system: null, user: null, synthetic: checklist };
+  }
+
+  // For Claude: AI-generated checklist focused on ANALYSIS step changes.
+  // Rewrite steps are handled as fixed CONTENT REWRITE entries (compile gets the content directly).
+  // Only analysis steps need AI extraction of specific changes.
   var rewriteIds  = ['contact','summary','skills','experience','supporting'];
   var analysisIds = ['triage','transfer','narrative','format','tailoring','levelsignal','voice'];
-  var rMax = mode === 'lm' ? 2000 : 99999;
-  var aMax = mode === 'lm' ?  600 : 99999;
 
-  var system = 'You are a document editor preparing a final ' + docLabel + ' change checklist. Target role: ' + role + '.' + NL +
-    'Extract EVERY discrete change to apply when building the final document.' + NL + NL +
-    'FORMAT: [N] [CATEGORY] - [Section] - [Action]' + NL +
-    'Categories: CONTENT REWRITE | KEYWORD ADD | FRAMING ADJUST | STRUCTURAL FIX | ADDITION | REMOVAL' + NL + NL +
-    'For REWRITE steps: add "[N] CONTENT REWRITE - [Section] - Use rewritten version from [Step Name]"' + NL +
-    'For ANALYSIS steps: extract specific actionable changes only. No commentary.' + NL +
-    'Number all items from 1. End with: TOTAL CHANGES: N';
-
-  var rewriteParts = STEPS
+  // Build fixed rewrite entries (no AI needed for these — just reference the step)
+  var rewriteEntries = STEPS
     .filter(function(s) { return rewriteIds.indexOf(s.id) !== -1 && results[s.id]; })
-    .map(function(s) {
-      var c = results[s.id]; if (c.length > rMax) c = c.slice(0, rMax) + '...[truncated]';
-      return '=== ' + s.name.toUpperCase() + ' (REWRITE — use this content) ===' + NL + c;
-    }).join(NL + NL);
+    .map(function(s, i) { return '[' + (i+1) + '] CONTENT REWRITE - ' + s.name + ' - Use rewritten version from ' + s.name + ' step'; })
+    .join(NL);
+  var startN = rewriteIds.filter(function(id) { return results[id]; }).length + 1;
+
+  var system = 'You are a document editor preparing a ' + docLabel + ' change checklist. Target role: ' + role + '.' + NL +
+    'The following CONTENT REWRITE items are already confirmed (numbered 1-' + (startN-1) + '):' + NL + rewriteEntries + NL + NL +
+    'Your job: read the ANALYSIS STEP outputs below and extract every additional discrete change.' + NL +
+    'Continue numbering from ' + startN + '.' + NL +
+    'FORMAT: [N] [CATEGORY] - [Section] - [Specific action]' + NL +
+    'Categories: KEYWORD ADD | FRAMING ADJUST | STRUCTURAL FIX | ADDITION | REMOVAL' + NL +
+    'Be specific. No commentary. End with: TOTAL CHANGES: N';
 
   var analysisParts = STEPS
     .filter(function(s) { return analysisIds.indexOf(s.id) !== -1 && results[s.id]; })
     .map(function(s) {
-      var c = results[s.id]; if (c.length > aMax) c = c.slice(0, aMax) + '...[truncated]';
-      return '=== ' + s.name.toUpperCase() + ' (ANALYSIS — extract specific fixes) ===' + NL + c;
+      var c = results[s.id]; if (c.length > 2000) c = c.slice(0, 2000) + '...[truncated]';
+      return '=== ' + s.name.toUpperCase() + ' ===' + NL + c;
     }).join(NL + NL);
 
-  var companyPart = results.company
-    ? (NL + NL + '=== COMPANY ALIGNMENT ===' + NL + (mode === 'lm' ? results.company.slice(0, 600) : results.company))
-    : '';
+  var companyPart = results.company ? (NL + NL + '=== COMPANY ALIGNMENT ===' + NL + results.company.slice(0, 1500)) : '';
+  var tailoringPart = results.tailoring ? (NL + NL + '=== JD TAILORING ===' + NL + results.tailoring.slice(0, 1500)) : '';
 
-  var user = 'REWRITE STEPS (use directly as document content):' + NL + NL +
-    (rewriteParts  || '(none)') + NL + NL +
-    'ANALYSIS STEPS (extract specific actionable changes):' + NL + NL +
-    (analysisParts || '(none)') + companyPart;
+  var user = 'Extract all additional changes from these analysis outputs:' + NL + NL +
+    (analysisParts || '(none)') + companyPart + tailoringPart + NL + NL +
+    'Continue the checklist from item ' + startN + '. Add only new items not already covered by the CONTENT REWRITE entries.';
 
   return { system: system, user: user };
 }
@@ -2275,7 +2304,11 @@ function buildCompilePrompt(results) {
       var cnt2  = results[s.id]; if (cnt2.length > mx2) cnt2 = cnt2.slice(0, mx2) + '...[truncated]';
       return '--- ' + s.name.toUpperCase() + lbl2 + ' ---\\n' + cnt2;
     })
-    .join('\\n\\n');nyAlign = results.company ? ('\n\n--- COMPANY ALIGNMENT ---\n' + results.company) : '';
+    .join('\\\\n\\\\n');
+
+  const companyAlign = results.company
+    ? ('\\n\\n--- COMPANY ALIGNMENT ---\\n' + (mode === 'lm' && results.company.length > 800 ? results.company.slice(0, 800) + '...' : results.company))
+    : '';
 
   const compileRoleCtx = '\nCRITICAL: The target role (' + role + ') is the PRIMARY evaluation lens. The industry (' + industry + ') is environmental context. Every section must serve what the ROLE requires first.';
   return 'You are a professional resume writer producing a final ' + docShort + ' for a ' + industry + ' candidate targeting: ' + role + '.' +
@@ -2469,16 +2502,24 @@ function formatBytes(b) {
 async function callClaude(systemPrompt, userText) {
   const safeSystem   = (systemPrompt && String(systemPrompt).trim()) ? String(systemPrompt) : 'You are a helpful assistant.';
   const safeUserText = (userText     && String(userText).trim())     ? String(userText)     : 'Please proceed with the analysis.';
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 4000,
-      system: safeSystem,
-      messages: [{ role: 'user', content: safeUserText }],
-    }),
-  });
+  let res;
+  try {
+    res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 4000,
+        system: safeSystem,
+        messages: [{ role: 'user', content: safeUserText }],
+      }),
+    });
+  } catch (fetchErr) {
+    if (fetchErr.message === 'Failed to fetch' || fetchErr.name === 'TypeError') {
+      throw new Error('Cannot reach the Anthropic API. Check your internet connection, or switch to LM Studio mode to run locally.');
+    }
+    throw fetchErr;
+  }
   const data = await res.json();
   if (data.error) throw new Error(data.error.message);
   return data.content.map(b => b.text || '').join('\n');
@@ -2488,19 +2529,27 @@ async function callLMStudio(systemPrompt, userText) {
   const safeSystem   = (systemPrompt && String(systemPrompt).trim()) ? String(systemPrompt) : 'You are a helpful assistant.';
   const safeUserText = (userText     && String(userText).trim())     ? String(userText)     : 'Please proceed.';
   const base = (document.getElementById('lm-url').value.trim() || 'http://localhost:1234').replace(/\/$/, '');
-  const res = await fetch(base + '/v1/chat/completions', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: 'local-model',
-      max_tokens: 4000,
-      messages: [
-        { role: 'system', content: safeSystem   },
-        { role: 'user',   content: safeUserText },
-      ],
-    }),
-  });
-  const data = await res.json();
+  let lmRes;
+  try {
+    lmRes = await fetch(base + '/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'local-model',
+        max_tokens: 4000,
+        messages: [
+          { role: 'system', content: safeSystem   },
+          { role: 'user',   content: safeUserText },
+        ],
+      }),
+    });
+  } catch (fetchErr) {
+    if (fetchErr.message === 'Failed to fetch' || fetchErr.name === 'TypeError') {
+      throw new Error('Cannot reach LM Studio at ' + base + '. Make sure LM Studio is running with the local server enabled, or switch to Claude mode. (Server → Start Server in LM Studio)');
+    }
+    throw fetchErr;
+  }
+  const data = await lmRes.json();
   if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
   return data.choices?.[0]?.message?.content || '';
 }
@@ -2648,6 +2697,18 @@ async function handleRun() {
   if (!fileData || isRunning) return;
   if (!fileData.text) { showError('File text not yet extracted. Please wait a moment and try again.'); return; }
 
+  // Pre-flight mode advisory
+  if (mode === 'claude') {
+    // Claude mode — will call Anthropic API. No pre-check needed but set expectation.
+  } else {
+    // LM Studio mode — verify server field isn't empty
+    const lmUrl = document.getElementById('lm-url').value.trim() || 'http://localhost:1234';
+    if (!lmUrl) {
+      showError('LM Studio mode is active but no server URL is set. Enter your LM Studio server URL or switch to Claude mode.');
+      return;
+    }
+  }
+
   clearError();
   resetResults();
   isRunning = true;
@@ -2778,7 +2839,12 @@ async function handleRun() {
     updateProgress(reconcileIdx, totalSteps, 'Reconciling fixes…');
     try {
       const reconcilePrompt = buildReconcilePrompt(results);
-      results.reconcile = await callAI(reconcilePrompt.system, reconcilePrompt.user);
+      if (reconcilePrompt.synthetic) {
+        // LM Studio: use synthesized checklist directly — no API call needed
+        results.reconcile = reconcilePrompt.synthetic;
+      } else {
+        results.reconcile = await callAI(reconcilePrompt.system, reconcilePrompt.user);
+      }
       setStepState(reconcileIdx, 'done');
     } catch (e) {
       setStepState(reconcileIdx, 'error');
@@ -3256,55 +3322,15 @@ function buildLinkedInPrompt(approvedDoc) {
     (jd ? '\n- Still reflect alignment to: ' + role + ' but in a general-audience voice' : '') +
     (company ? '\n- The candidate is targeting ' + company + ' — subtle alignment is appropriate but this is a general profile, not a company-specific one' : '') +
     '\n\nAPPROVED DOCUMENT:\n""\n' + approvedDoc + '\n""' +
-    '\n\nGenerate the following five sections. Label each clearly with === SECTION NAME ===\n\n' +
-    '=== HEADLINE ===' +
-    '\nProvide 3 headline variations.' +
-    '\nConstraints: max 220 characters each, no buzzwords (no \'passionate\', \'results-driven\', \'dynamic\'), clear positioning (what I do + who I help), include relevant keywords.' +
-    '\nLabel each variation and include character count in brackets. Add one sentence explaining the angle.' +
-    '\n\n=== ABOUT ===' +
-    '\nWrite the LinkedIn About section.' +
-    '\nStructure: (1) Opening hook — one compelling sentence about what you do or the problem you solve. (2) What you specialize in. (3) 2–3 specific achievements or examples of impact. (4) Who should connect with you and why.' +
-    '\nRules: First person. Conversational but professional. 150–200 words. No generic phrases. End with a clear CTA.' +
-    '\n\n=== EXPERIENCE ===' +
-    '\nWrite LinkedIn-style experience descriptions for every role from the document.' +
-    '\nFor each role: job title, company, and a 2–4 sentence narrative description followed by 2–3 bullet points.' +
-    '\nTone is slightly more narrative and human than resume bullets. Still accurate — never change the factual context of any role.' +
-    '\nAll roles included — no triage, no condensing, no dropping.' +
-    '\nFormat each as: JOB TITLE at COMPANY (dates)\n[description]\n[bullets]' +
-    '\n\n=== SKILLS ===' +
-    '\nProvide a list of 30–50 skills for the LinkedIn Skills section.' +
-    '\nOrganize by category with labels: Technical Skills, Domain Knowledge, Tools & Platforms, Soft Skills / Leadership.' +
-    '\nOptimized for LinkedIn search and endorsement visibility.' +
-    '\nList as comma-separated items within each category.' +
-    '\n\n=== FEATURED ===' +
-    '\nProvide 3–5 specific recommendations for what to pin in the LinkedIn Featured section.' +
-    '\nFor each: what to pin, why it strengthens this candidate\'s profile, and how to frame the caption.' +
-    '\nBased on the candidate\'s background. If no obvious content exists for a slot, suggest creating it (e.g. a short LinkedIn article, a portfolio piece).' +
-    '\n\n=== SETTINGS AND RECOMMENDATIONS ===' +
-    '\nProvide two things:' +
-    '\n\nPART A — OPEN TO WORK SETTINGS' +
-    '\nAdvise on the Open to Work feature:' +
-    '\n- Green banner (public): visible to everyone including the current employer. Recommend only if the candidate is comfortable with their employer knowing, or if they are unemployed.' +
-    '\n- Recruiters only (private): visible only to LinkedIn Recruiter users. Generally safer for employed candidates.' +
-    '\n- Recommendation for THIS candidate based on their situation (employed vs between roles, seniority level, industry norms).' +
-    '\n- Which job titles, locations, and work types (remote/hybrid/on-site) to select in the settings.' +
-    '\n\nPART B — RECOMMENDATION REQUEST TEMPLATES' +
-    '\nWrite three LinkedIn recommendation request messages:' +
-    '\n1. TO A FORMER MANAGER — professional, specific about what you hope they will speak to, easy for them to write.' +
-    '\n2. TO A PEER OR COLLEAGUE — more conversational, references a specific project or collaboration.' +
-    '\n3. TO A DIRECT REPORT (if applicable based on the document) — asks them to speak to your leadership style and impact.' +
-    '\nEach message: 4-6 sentences. Warm but professional. Gives the writer enough context without being prescriptive.' +
-    '\n\nPART C — PROFILE COMPLETENESS CHECKLIST' +
-    '\nLinkedIn uses an All-Star rating for profile completeness. List what the candidate needs to reach All-Star and maximize discoverability:' +
-    '\n- Profile photo (professional headshot — profiles with photos get 21x more views)' +
-    '\n- Background banner image (custom or professional — the default blue is a missed branding opportunity)' +
-    '\n- Custom profile URL: change from linkedin.com/in/firstname-lastname12345 to linkedin.com/in/firstnamelastname — cleaner for resumes and email signatures' +
-    '\n- 500+ connections (LinkedIn caps display at 500+, which signals an established network)' +
-    '\n- All five skills endorsed by at least one connection' +
-    '\n- At least one recommendation received (not just given)' +
-    '\n- Current position with description' +
-    '\n- Education section complete' +
-    '\nNote which of these the candidate likely has based on their document, and which are missing.';
+    '\n\nOutput your response in exactly six labeled sections. Begin each section on its own line with this exact format: === SECTION NAME === '  +
+    '\nThe six section names are: HEADLINE, ABOUT, EXPERIENCE, SKILLS, FEATURED, SETTINGS AND RECOMMENDATIONS'  +
+    '\nDo not add extra === markers inside section content. Do not skip any section.'  +
+    '\n\nHEADLINE: 3 variations. Max 220 chars each. No buzzwords. Character count in brackets. One sentence explaining the angle.'  +
+    '\n\nABOUT: First person. 150-200 words. Opening hook, specialization, 2-3 impact examples, CTA. Conversational.'  +
+    '\n\nEXPERIENCE: Every role. Format each as: JOB TITLE at COMPANY (dates) — then 2-4 sentence narrative — then 2-3 bullets. All roles included. Never change the factual context of any role.'  +
+    '\n\nSKILLS: 30-50 skills by category (Technical Skills, Domain Knowledge, Tools and Platforms, Soft Skills). Comma-separated.'  +
+    '\n\nFEATURED: 3-5 items to pin. For each: what to pin, why it helps, how to caption it.'  +
+    '\n\nSETTINGS AND RECOMMENDATIONS: Three parts — (A) Open to Work settings: green banner vs recruiters-only guidance, which titles/locations/work-types to select. (B) Three recommendation request templates: to a former manager, to a peer, to a direct report. 4-6 sentences each. (C) Profile Completeness checklist for All-Star status: photo, banner, custom URL (linkedin.com/in/firstnamelastname), 500+ connections, endorsements, received recommendation, current position, education.'
 }
 
 async function generateLinkedIn() {
@@ -3347,14 +3373,26 @@ async function generateLinkedIn() {
 }
 
 function extractLinkedInSection(text, sectionName) {
-  // Extract content between === SECTION === markers
-  const startMarker = '=== ' + sectionName + ' ===';
-  const start = text.indexOf(startMarker);
+  // Try exact match first, then case-insensitive
+  var markers = ['=== ' + sectionName + ' ===', '=== ' + sectionName + '===', '===' + sectionName + '==='];
+  var start = -1;
+  var markerLen = 0;
+  for (var m = 0; m < markers.length; m++) {
+    start = text.indexOf(markers[m]);
+    if (start !== -1) { markerLen = markers[m].length; break; }
+  }
   if (start === -1) return '';
-  const afterStart = start + startMarker.length;
-  // Find next === marker
-  const nextSection = text.indexOf('\n=== ', afterStart);
-  const end = nextSection > 0 ? nextSection : text.length;
+  var afterStart = start + markerLen;
+  // Find next === marker — allow 0, 1, or 2 newlines before it
+  var nextSection = -1;
+  var searchPatterns = ['\n\n=== ', '\n=== ', '\r\n=== '];
+  for (var p = 0; p < searchPatterns.length; p++) {
+    var found = text.indexOf(searchPatterns[p], afterStart);
+    if (found !== -1 && (nextSection === -1 || found < nextSection)) {
+      nextSection = found;
+    }
+  }
+  var end = nextSection > 0 ? nextSection : text.length;
   return text.slice(afterStart, end).trim();
 }
 
