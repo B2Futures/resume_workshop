@@ -258,8 +258,8 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', system-u
 
 /* ── Results ── */
 #results-wrap { display: none; }
-#results-wrap.visible { display: block; }
-.results-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px; padding-bottom: 18px; border-bottom: 1px solid var(--border); flex-wrap: wrap; gap: 12px; }
+#results-wrap.visible { display: block; padding: 0 4px; }
+.results-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px; padding: 0 4px 18px; border-bottom: 1px solid var(--border); flex-wrap: wrap; gap: 12px; }
 .results-title { font-size: 18px; font-weight: 700; letter-spacing: -0.02em; }
 .results-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .btn-ghost { background: transparent; border: 1px solid var(--border2); border-radius: 7px; padding: 7px 14px; font-size: 12px; font-weight: 600; color: var(--muted); cursor: pointer; font-family: inherit; transition: all 0.15s; }
@@ -268,7 +268,7 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', system-u
 .btn-pdf:hover { background: #0a1e40; }
 
 /* ── Result sections ── */
-.result-section { margin-bottom: 16px; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+.result-section { margin-bottom: 16px; margin-left: 4px; margin-right: 4px; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
 .result-section-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; background: var(--surface); border-bottom: 1px solid var(--border); cursor: pointer; user-select: none; }
 .result-section-head:hover { background: var(--raised); }
 .section-label { display: flex; align-items: center; gap: 10px; }
@@ -298,7 +298,7 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', system-u
 .section-copy:hover { border-color: var(--accent); color: #7eb3ff; }
 
 /* ── PDF / compile section ── */
-.pdf-section { margin-top: 24px; border: 1px solid #1e3a6e; border-radius: 12px; overflow: hidden; }
+.pdf-section { margin-top: 24px; margin-left: 4px; margin-right: 4px; border: 1px solid #1e3a6e; border-radius: 12px; overflow: hidden; }
 .pdf-section-head { padding: 16px 20px; background: #071428; border-bottom: 1px solid #1e3a6e; display: flex; align-items: center; justify-content: space-between; }
 .pdf-section-title { font-size: 14px; font-weight: 700; color: #7eb3ff; }
 .pdf-section-desc  { font-size: 12px; color: var(--muted); margin-top: 2px; }
@@ -313,6 +313,8 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', system-u
 #review-section {
   display: none;
   margin-top: 20px;
+  margin-left: 4px;
+  margin-right: 4px;
   border: 1px solid var(--border2);
   border-radius: 12px;
   overflow: hidden;
@@ -462,6 +464,8 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', system-u
 #linkedin-section {
   display: none;
   margin-top: 20px;
+  margin-left: 4px;
+  margin-right: 4px;
   border: 1px solid #1e3a6e;
   border-radius: 12px;
   overflow: hidden;
@@ -606,6 +610,8 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', system-u
   display: none;
   margin-top: 20px;
   margin-bottom: 20px;
+  margin-left: 4px;
+  margin-right: 4px;
   border: 1px solid #1e3a6e;
   border-radius: 12px;
   overflow: hidden;
@@ -2193,45 +2199,48 @@ function buildCompanyPrompt(industry, role) {
 }
 
 function buildReconcilePrompt(results) {
-  // Returns {system, user} split — keeps system lean, analysis data in user message
   var role     = document.getElementById('ctx-role').value.trim() || 'not specified';
   var isCV     = currentDocType === 'cv';
   var docLabel = isCV ? 'CV' : 'resume';
-  var stepCount = STEPS.filter(function(s) { return ['compile','reconcile'].indexOf(s.id) === -1 && results[s.id]; }).length;
-  var NL = String.fromCharCode(10);
+  var NL       = String.fromCharCode(10);
 
-  // Truncate each step output for LM Studio context safety (max 1200 chars per step)
-  // Claude's large context window handles full outputs without truncation
-  var maxPerStep = mode === 'lm' ? 1200 : 99999;
+  // Split rewrite steps (have actual content) vs analysis steps (have recommendations)
+  // For LM Studio: cap aggressively to stay within 4K-16K context windows
+  var rewriteIds  = ['contact','summary','skills','experience','supporting'];
+  var analysisIds = ['triage','transfer','narrative','format','tailoring','levelsignal','voice'];
+  var rMax = mode === 'lm' ? 2000 : 99999;
+  var aMax = mode === 'lm' ?  600 : 99999;
 
-  var system = 'You are a meticulous document editor preparing a ' + docLabel + ' for final production. Target role: ' + role + '.' + NL +
-    'The user will provide outputs from ' + stepCount + ' analysis steps.' + NL +
-    'Extract EVERY discrete change recommended into a single numbered checklist.' + NL + NL +
-    'FORMAT each item: [N] [CATEGORY] - [Section] - [Specific action]' + NL + NL +
+  var system = 'You are a document editor preparing a final ' + docLabel + ' change checklist. Target role: ' + role + '.' + NL +
+    'Extract EVERY discrete change to apply when building the final document.' + NL + NL +
+    'FORMAT: [N] [CATEGORY] - [Section] - [Action]' + NL +
     'Categories: CONTENT REWRITE | KEYWORD ADD | FRAMING ADJUST | STRUCTURAL FIX | ADDITION | REMOVAL' + NL + NL +
-    'Rules:' + NL +
-    '- Be exhaustive. Do not summarize or group distinct changes.' + NL +
-    '- Be specific. Name the section, role, or bullet.' + NL +
-    '- No commentary. Only actionable changes.' + NL +
-    '- If a step produced a rewritten block, add: "Use rewritten version from [Step Name]" as a CONTENT REWRITE.' + NL +
-    '- Number every item from 1.' + NL +
-    'End with: TOTAL CHANGES: N (breakdown by category)';
+    'For REWRITE steps: add "[N] CONTENT REWRITE - [Section] - Use rewritten version from [Step Name]"' + NL +
+    'For ANALYSIS steps: extract specific actionable changes only. No commentary.' + NL +
+    'Number all items from 1. End with: TOTAL CHANGES: N';
 
-  var sections = STEPS
-    .filter(function(s) { return ['compile','reconcile','company'].indexOf(s.id) === -1 && results[s.id]; })
+  var rewriteParts = STEPS
+    .filter(function(s) { return rewriteIds.indexOf(s.id) !== -1 && results[s.id]; })
     .map(function(s) {
-      var content = results[s.id];
-      if (content.length > maxPerStep) content = content.slice(0, maxPerStep) + '... [truncated for context]';
-      return '=== ' + s.name.toUpperCase() + ' ===' + NL + content;
-    })
-    .join(NL + NL);
+      var c = results[s.id]; if (c.length > rMax) c = c.slice(0, rMax) + '...[truncated]';
+      return '=== ' + s.name.toUpperCase() + ' (REWRITE — use this content) ===' + NL + c;
+    }).join(NL + NL);
 
-  var companyBlock = results.company
-    ? (NL + NL + '=== COMPANY RESEARCH & ALIGNMENT ===' + NL + (results.company.length > maxPerStep ? results.company.slice(0, maxPerStep) + '...' : results.company))
+  var analysisParts = STEPS
+    .filter(function(s) { return analysisIds.indexOf(s.id) !== -1 && results[s.id]; })
+    .map(function(s) {
+      var c = results[s.id]; if (c.length > aMax) c = c.slice(0, aMax) + '...[truncated]';
+      return '=== ' + s.name.toUpperCase() + ' (ANALYSIS — extract specific fixes) ===' + NL + c;
+    }).join(NL + NL);
+
+  var companyPart = results.company
+    ? (NL + NL + '=== COMPANY ALIGNMENT ===' + NL + (mode === 'lm' ? results.company.slice(0, 600) : results.company))
     : '';
 
-  var user = 'Here are the analysis outputs. Extract every recommended change into the numbered checklist:' + NL + NL + sections + companyBlock;
-  if (!user || !user.trim()) user = 'Please extract all required changes from the analysis above into a numbered checklist.';
+  var user = 'REWRITE STEPS (use directly as document content):' + NL + NL +
+    (rewriteParts  || '(none)') + NL + NL +
+    'ANALYSIS STEPS (extract specific actionable changes):' + NL + NL +
+    (analysisParts || '(none)') + companyPart;
 
   return { system: system, user: user };
 }
@@ -2259,10 +2268,14 @@ function buildCompilePrompt(results) {
 
   const rewrites = STEPS
     .filter(function(s) { return ['compile','reconcile','company'].indexOf(s.id) === -1 && results[s.id]; })
-    .map(function(s) { return '--- ' + s.name.toUpperCase() + ' ---\n' + results[s.id]; })
-    .join('\n\n');
-
-  const companyAlign = results.company ? ('\n\n--- COMPANY ALIGNMENT ---\n' + results.company) : '';
+    .map(function(s) {
+      var isAn2 = ['narrative','voice','levelsignal','triage','transfer'].indexOf(s.id) !== -1;
+      var mx2   = mode === 'lm' ? (isAn2 ? 600 : 2500) : 99999;
+      var lbl2  = isAn2 ? ' [analysis]' : ' [rewrite]';
+      var cnt2  = results[s.id]; if (cnt2.length > mx2) cnt2 = cnt2.slice(0, mx2) + '...[truncated]';
+      return '--- ' + s.name.toUpperCase() + lbl2 + ' ---\\n' + cnt2;
+    })
+    .join('\\n\\n');nyAlign = results.company ? ('\n\n--- COMPANY ALIGNMENT ---\n' + results.company) : '';
 
   const compileRoleCtx = '\nCRITICAL: The target role (' + role + ') is the PRIMARY evaluation lens. The industry (' + industry + ') is environmental context. Every section must serve what the ROLE requires first.';
   return 'You are a professional resume writer producing a final ' + docShort + ' for a ' + industry + ' candidate targeting: ' + role + '.' +
