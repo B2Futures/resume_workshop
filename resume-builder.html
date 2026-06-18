@@ -1,0 +1,1996 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Resume Builder</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:       #04080f;
+  --surface:  #080f1c;
+  --raised:   #0d1829;
+  --border:   #152035;
+  --border2:  #1e3050;
+  --text:     #e8edf5;
+  --muted:    #5a7090;
+  --subtle:   #334a66;
+  --accent:   #3b7eff;
+  --accent-d: #1a56d6;
+  --green:    #22c55e;
+  --amber:    #f59e0b;
+  --red:      #ef4444;
+  --mono:     'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+}
+
+body { background: var(--bg); color: var(--text); font-family: 'Inter', system-ui, sans-serif; min-height: 100vh; line-height: 1.6; }
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+.shell { max-width: 940px; margin: 0 auto; padding: 48px 48px 80px; }
+
+/* ── Header ── */
+.header { position: relative; text-align: center; margin-bottom: 36px; padding-bottom: 28px; border-bottom: 1px solid var(--border); }
+.mode-pill { position: absolute; right: 0; top: 0; display: flex; gap: 3px; background: var(--raised); border: 1px solid var(--border); border-radius: 8px; padding: 3px; }
+.mode-pill button { padding: 5px 14px; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; background: transparent; color: var(--muted); font-family: inherit; transition: all 0.15s; }
+.mode-pill button.active { background: var(--border2); color: #7eb3ff; }
+.wordmark { display: inline-flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }
+.wordmark-main { font-size: 22px; font-weight: 700; letter-spacing: -0.03em; color: var(--text); }
+.wordmark-tag { font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); padding: 2px 6px; border: 1px solid #1e3a6e; border-radius: 4px; background: #0a1e40; }
+.header-sub { font-size: 13px; color: var(--muted); }
+
+/* ── Doc type ── */
+.doc-type-row { display: flex; gap: 10px; margin-bottom: 0; }
+.doc-type-btn { flex: 1; padding: 14px 20px; border-radius: 10px; border: 1.5px solid var(--border2); background: var(--surface); color: var(--muted); cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 600; text-align: left; transition: all 0.18s; }
+.doc-type-btn:hover { border-color: var(--accent); color: var(--text); }
+.doc-type-btn.active { border-color: var(--accent); background: #071428; color: var(--text); }
+.doc-type-btn .dt-icon { font-size: 20px; margin-bottom: 6px; display: block; }
+.doc-type-btn .dt-name { font-size: 14px; font-weight: 700; color: var(--text); display: block; margin-bottom: 2px; }
+.doc-type-btn .dt-desc { font-size: 11px; color: var(--muted); font-weight: 400; display: block; line-height: 1.4; }
+.doc-type-btn.active .dt-desc { color: #7eb3ff; }
+
+.doc-explain-toggle { width: 100%; padding: 8px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; font-size: 11px; color: var(--subtle); cursor: pointer; font-family: inherit; text-align: left; transition: color 0.15s; margin-top: 10px; margin-bottom: 20px; }
+.doc-explain-toggle:hover { color: var(--muted); }
+#doc-explain-panel { display: none; margin-top: 8px; margin-bottom: 20px; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+#doc-explain-panel.visible { display: block; }
+.doc-explain-grid { display: grid; grid-template-columns: 1fr 1fr; }
+.doc-explain-col { padding: 18px 20px; border-right: 1px solid var(--border); background: var(--bg); }
+.doc-explain-col:last-child { border-right: none; }
+.doc-explain-label { font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 10px; }
+.doc-explain-label.resume-color { color: var(--accent); }
+.doc-explain-label.cv-color { color: #a78bfa; }
+.doc-explain-list { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.doc-explain-list li { font-size: 12px; color: #6a8faf; line-height: 1.5; padding-left: 14px; position: relative; }
+.doc-explain-list li::before { content: '–'; position: absolute; left: 0; color: var(--subtle); }
+.doc-explain-when { padding: 12px 20px; background: var(--surface); border-top: 1px solid var(--border); font-size: 11px; color: var(--muted); line-height: 1.6; }
+.doc-explain-when strong { color: var(--text); }
+
+/* ── Fields ── */
+.field label { display: block; font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+.field input, .field select, .field textarea { width: 100%; background: var(--raised); border: 1px solid var(--border); border-radius: 7px; padding: 9px 11px; color: var(--text); font-size: 13px; font-family: inherit; outline: none; transition: border-color 0.15s; }
+.field input:focus, .field select:focus, .field textarea:focus { border-color: var(--accent); }
+.field input::placeholder, .field textarea::placeholder { color: var(--subtle); }
+.field select option { background: var(--raised); }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 14px; }
+.grid-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 12px; margin-bottom: 14px; }
+.mb-14 { margin-bottom: 14px; }
+
+/* ── Section headers ── */
+.section-header { margin-bottom: 20px; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
+.section-title { font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+.section-sub { font-size: 12px; color: var(--muted); }
+
+/* ── LM URL ── */
+#lm-url-row { display: none; margin-bottom: 16px; }
+#lm-url-row.visible { display: block; }
+
+/* ── Steps sidebar + main layout ── */
+.builder-layout { display: grid; grid-template-columns: 220px 1fr; gap: 24px; margin-top: 28px; }
+.builder-sidebar { position: sticky; top: 24px; align-self: start; }
+.sidebar-steps { display: flex; flex-direction: column; gap: 4px; }
+.sidebar-step { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 9px; border: 1px solid transparent; cursor: pointer; transition: all 0.15s; font-size: 13px; color: var(--muted); user-select: none; }
+.sidebar-step:hover { background: var(--surface); color: var(--text); }
+.sidebar-step.active { background: var(--surface); border-color: var(--border2); color: var(--text); }
+.sidebar-step.complete { color: var(--green); }
+.sidebar-step.complete .step-dot { background: var(--green); }
+.sidebar-step.active .step-dot { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+.step-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border2); flex-shrink: 0; transition: all 0.2s; }
+.step-num { font-size: 10px; font-weight: 700; color: var(--subtle); min-width: 14px; }
+.sidebar-divider { height: 1px; background: var(--border); margin: 8px 0; }
+.sidebar-role-list { display: flex; flex-direction: column; gap: 3px; padding-left: 8px; }
+.sidebar-role { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 7px; cursor: pointer; font-size: 12px; color: var(--muted); transition: all 0.15s; border: 1px solid transparent; }
+.sidebar-role:hover { background: var(--surface); color: var(--text); }
+.sidebar-role.active { background: var(--surface); border-color: var(--border); color: var(--text); }
+.sidebar-role.approved { color: var(--green); }
+.role-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--border2); flex-shrink: 0; }
+.sidebar-role.approved .role-dot { background: var(--green); }
+.sidebar-role.active .role-dot { background: var(--accent); }
+
+/* ── Main content panels ── */
+.builder-main { min-width: 0; }
+.builder-panel { display: none; }
+.builder-panel.active { display: block; }
+
+/* ── Role card ── */
+.role-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+.role-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.role-card-title { font-size: 14px; font-weight: 700; color: var(--text); }
+.role-card-subtitle { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.btn-remove-role { background: transparent; border: 1px solid var(--border2); border-radius: 6px; color: var(--muted); padding: 4px 10px; font-size: 11px; cursor: pointer; font-family: inherit; transition: all 0.15s; }
+.btn-remove-role:hover { border-color: var(--red); color: #f87171; }
+
+/* ── Buttons ── */
+.btn-primary { background: var(--accent); color: #fff; border: none; border-radius: 9px; padding: 11px 22px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit; transition: all 0.15s; }
+.btn-primary:hover:not(:disabled) { background: var(--accent-d); }
+.btn-primary:disabled { opacity: 0.45; cursor: default; }
+.btn-secondary { background: transparent; border: 1px solid var(--border2); border-radius: 9px; padding: 10px 20px; font-size: 13px; font-weight: 600; color: var(--muted); cursor: pointer; font-family: inherit; transition: all 0.15s; }
+.btn-secondary:hover:not(:disabled) { border-color: var(--accent); color: #7eb3ff; }
+.btn-secondary:disabled { opacity: 0.45; cursor: default; }
+.btn-add { display: flex; align-items: center; gap: 8px; padding: 10px 16px; background: var(--raised); border: 1.5px dashed var(--border2); border-radius: 9px; color: var(--muted); font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; transition: all 0.15s; width: 100%; justify-content: center; }
+.btn-add:hover { border-color: var(--accent); color: #7eb3ff; }
+.btn-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.btn-row.right { justify-content: flex-end; }
+.btn-row.spread { justify-content: space-between; }
+
+/* ── Interview panel ── */
+.interview-panel { background: #071428; border: 1px solid #1e3a6e; border-radius: 12px; padding: 20px; margin-top: 16px; }
+.interview-header { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+.interview-badge { font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 3px 8px; border-radius: 4px; background: #0a1e40; border: 1px solid #1e3a6e; color: #7eb3ff; }
+.interview-title { font-size: 14px; font-weight: 700; color: #7eb3ff; }
+.interview-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.interview-progress { display: flex; gap: 4px; margin-bottom: 16px; }
+.interview-dot { height: 3px; flex: 1; border-radius: 2px; background: var(--border2); transition: background 0.2s; }
+.interview-dot.done { background: var(--green); }
+.interview-dot.current { background: var(--accent); }
+.question-bubble { background: var(--raised); border: 1px solid var(--border2); border-radius: 10px; padding: 14px 16px; margin-bottom: 12px; font-size: 13px; color: var(--text); line-height: 1.6; }
+.question-label { font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #7eb3ff; margin-bottom: 6px; }
+.answer-field { width: 100%; background: var(--bg); border: 1px solid var(--border2); border-radius: 8px; padding: 10px 13px; color: var(--text); font-size: 13px; font-family: inherit; outline: none; resize: vertical; min-height: 70px; transition: border-color 0.15s; line-height: 1.6; }
+.answer-field:focus { border-color: var(--accent); }
+.answer-field::placeholder { color: var(--subtle); }
+.interview-skip { font-size: 11px; color: var(--subtle); cursor: pointer; text-decoration: underline; }
+.interview-skip:hover { color: var(--muted); }
+
+/* ── Bullets output ── */
+.bullets-panel { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-top: 16px; }
+.bullets-header { padding: 14px 18px; background: var(--raised); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+.bullets-title { font-size: 13px; font-weight: 700; color: var(--text); }
+.bullets-status { font-size: 11px; color: var(--muted); }
+.bullets-body { padding: 16px 18px; font-size: 13px; color: #b0c4de; line-height: 1.8; white-space: pre-wrap; font-family: var(--mono); min-height: 80px; }
+.bullets-feedback { display: flex; gap: 10px; padding: 12px 18px; border-top: 1px solid var(--border); background: var(--surface); }
+.bullets-feedback textarea { flex: 1; background: var(--raised); border: 1px solid var(--border); border-radius: 7px; padding: 8px 11px; color: var(--text); font-size: 13px; font-family: inherit; outline: none; resize: none; min-height: 36px; transition: border-color 0.15s; }
+.bullets-feedback textarea:focus { border-color: var(--accent); }
+.bullets-feedback textarea::placeholder { color: var(--subtle); }
+.bullets-approved { padding: 10px 18px; background: #081510; border-top: 1px solid #1a4a2a; display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--green); }
+.btn-approve-role { background: #0f3020; border: 1px solid var(--green); color: #4ade80; border-radius: 7px; padding: 7px 16px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: inherit; transition: all 0.15s; }
+.btn-approve-role:hover { background: #163a28; }
+.btn-approve-role.approved { background: var(--green); color: #fff; }
+
+/* ── Spinner ── */
+.spin-row { display: flex; align-items: center; gap: 10px; padding: 12px 0; font-size: 12px; color: #7eb3ff; }
+.spin-ring { width: 16px; height: 16px; border: 2px solid var(--border2); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; flex-shrink: 0; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Supporting section card ── */
+.support-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px; margin-bottom: 14px; }
+.support-card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.support-card-title { font-size: 13px; font-weight: 700; color: var(--text); }
+
+/* ── Document review ── */
+#doc-review-section { display: none; margin-top: 24px; border: 1px solid var(--border2); border-radius: 12px; overflow: hidden; }
+#doc-review-section.visible { display: block; }
+.doc-review-header { padding: 14px 20px; background: #071428; border-bottom: 1px solid var(--border2); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+.doc-review-title { font-size: 14px; font-weight: 700; color: #7eb3ff; }
+.doc-review-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+#doc-editor { width: 100%; min-height: 400px; background: var(--bg); border: none; border-bottom: 1px solid var(--border); padding: 20px; color: #b0c4de; font-size: 13px; font-family: var(--mono); line-height: 1.8; resize: vertical; outline: none; }
+#doc-editor:focus { background: #040c18; }
+.doc-feedback-row { display: flex; gap: 10px; padding: 14px 18px; background: var(--surface); border-top: 1px solid var(--border); }
+#doc-feedback-input { flex: 1; background: var(--raised); border: 1px solid var(--border); border-radius: 8px; padding: 9px 12px; color: var(--text); font-size: 13px; font-family: inherit; resize: none; outline: none; min-height: 38px; transition: border-color 0.15s; }
+#doc-feedback-input:focus { border-color: var(--accent); }
+#doc-feedback-input::placeholder { color: var(--subtle); }
+.doc-version { font-size: 11px; color: var(--subtle); padding: 0 18px 10px; background: var(--surface); }
+
+/* ── Error ── */
+#error-box { display:none; background:#150808; border:1px solid #5a1a1a; border-radius:10px; padding:14px 18px; color:#fca5a5; font-size:13px; margin-bottom:24px; line-height: 1.6; }
+#error-box.visible { display:block; }
+
+/* ── Print ── */
+@media print {
+  .shell > *:not(#pdf-print-area) { display: none !important; }
+  #pdf-print-area { display: block !important; }
+}
+#pdf-print-area { display: none; }
+#pdf-document { font-family: Arial, sans-serif; font-size: 10pt; line-height: 1.5; color: #000; padding: 0.5in; }
+
+
+/* ── Build option cards ── */
+.build-options { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 20px; }
+.build-option-card {
+  border: 1.5px solid var(--border2);
+  border-radius: 12px;
+  padding: 20px;
+  cursor: pointer;
+  transition: all 0.18s;
+  background: var(--surface);
+  position: relative;
+}
+.build-option-card:hover { border-color: var(--accent); background: #071428; }
+.build-option-card.selected { border-color: var(--accent); background: #071428; }
+.build-option-card.selected::after {
+  content: '✓';
+  position: absolute;
+  top: 12px; right: 14px;
+  font-size: 13px; font-weight: 700;
+  color: var(--accent);
+}
+.build-option-icon { font-size: 24px; margin-bottom: 10px; }
+.build-option-name { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+.build-option-desc { font-size: 12px; color: var(--muted); line-height: 1.55; }
+.build-option-when { font-size: 11px; color: var(--subtle); margin-top: 8px; font-style: italic; }
+
+/* ── Year cutoff toggle (for Recent History option) ── */
+.cutoff-row {
+  display: none;
+  gap: 10px;
+  margin-top: 14px;
+}
+.cutoff-row.visible { display: flex; }
+.cutoff-btn {
+  flex: 1;
+  padding: 10px 14px;
+  border: 1.5px solid var(--border2);
+  border-radius: 9px;
+  background: var(--raised);
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: center;
+  transition: all 0.15s;
+}
+.cutoff-btn:hover { border-color: var(--accent); color: var(--text); }
+.cutoff-btn.selected { border-color: var(--accent); background: #071428; color: #7eb3ff; }
+.cutoff-explain {
+  margin-top: 10px;
+  font-size: 11px;
+  color: var(--muted);
+  background: var(--raised);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 13px;
+  line-height: 1.6;
+  display: none;
+}
+.cutoff-explain.visible { display: block; }
+
+/* ── Analyzer callout ── */
+.analyzer-callout {
+  display: none;
+  margin-top: 20px;
+  background: #071428;
+  border: 1px solid #1e3a6e;
+  border-radius: 12px;
+  padding: 18px 20px;
+}
+.analyzer-callout.visible { display: block; }
+.analyzer-callout-title { font-size: 13px; font-weight: 700; color: #7eb3ff; margin-bottom: 6px; }
+.analyzer-callout-body { font-size: 12px; color: var(--muted); line-height: 1.65; }
+.analyzer-callout-body strong { color: var(--text); }
+
+
+/* ── Guide panel ── */
+#guide-panel {
+  border: 1px solid var(--border2);
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 14px;
+}
+#guide-toggle {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 18px;
+  background: var(--surface);
+  cursor: pointer;
+  user-select: none;
+  border: none;
+  width: 100%;
+  font-family: inherit;
+  transition: background 0.15s;
+  text-align: center;
+}
+#guide-toggle:hover { background: var(--raised); }
+.guide-badge {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--accent); background: #0a1e40; border: 1px solid #1e3a6e;
+  border-radius: 4px; padding: 2px 7px;
+}
+.guide-toggle-title { font-size: 13px; font-weight: 600; color: var(--text); }
+.guide-toggle-sub { font-size: 11px; color: var(--muted); margin-top: 1px; }
+.guide-chevron { font-size: 12px; color: var(--subtle); transition: transform 0.2s; flex-shrink: 0; }
+#guide-panel.collapsed .guide-chevron { transform: rotate(-90deg); }
+#guide-body { background: var(--bg); border-top: 1px solid var(--border); padding: 24px 24px 28px; }
+#guide-panel.collapsed #guide-body { display: none; }
+.guide-intro {
+  font-size: 13px; color: #8ba5c0; line-height: 1.7; margin-bottom: 24px;
+  max-width: 680px; text-align: center; margin-left: auto; margin-right: auto;
+}
+.guide-section-title {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase;
+  color: var(--muted); margin-bottom: 14px;
+}
+.guide-steps-grid { display: flex; flex-direction: column; gap: 10px; margin-bottom: 24px; }
+.guide-step-card {
+  display: flex; align-items: flex-start; gap: 12px; background: var(--surface);
+  border: 1px solid var(--border); border-radius: 9px; padding: 13px 16px;
+  transition: border-color 0.15s;
+}
+.guide-step-card:hover { border-color: var(--border2); }
+.guide-step-badge { display: flex; flex-direction: column; align-items: center; gap: 4px; flex-shrink: 0; width: 28px; }
+.guide-step-badge-num {
+  width: 26px; height: 26px; border-radius: 6px; background: #0a1e40;
+  border: 1px solid #1e3a6e; display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700; color: #7eb3ff; flex-shrink: 0;
+}
+.guide-step-badge-num.opt { background: var(--raised); border-color: var(--border); color: var(--subtle); }
+.guide-step-body { flex: 1; min-width: 0; }
+.guide-step-name { font-size: 12px; font-weight: 700; color: #94b8d0; margin-bottom: 2px; }
+.guide-step-desc { font-size: 11px; color: #5a7090; line-height: 1.5; }
+.guide-step-tag {
+  display: inline-block; font-size: 9px; font-weight: 700; letter-spacing: 0.07em;
+  text-transform: uppercase; padding: 1px 5px; border-radius: 3px; margin-left: 5px; vertical-align: middle;
+}
+.tag-optional { background: #1a1a0a; color: #8a7a30; border: 1px solid #3a3010; }
+.tag-cv       { background: #160a2a; color: #a78bfa; border: 1px solid #4a1a8a; }
+.guide-tips { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; padding-top: 20px; border-top: 1px solid var(--border); }
+.guide-tip { background: var(--surface); border: 1px solid var(--border); border-radius: 9px; padding: 13px 14px; }
+.guide-tip-icon { font-size: 16px; margin-bottom: 7px; }
+.guide-tip-title { font-size: 11px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+.guide-tip-text  { font-size: 11px; color: var(--muted); line-height: 1.5; }
+.guide-dismiss { display: flex; justify-content: flex-end; margin-top: 20px; }
+.guide-dismiss button {
+  background: transparent; border: 1px solid var(--border2); border-radius: 6px;
+  padding: 6px 14px; font-size: 11px; font-weight: 600; color: var(--muted);
+  cursor: pointer; font-family: inherit; transition: all 0.15s;
+}
+.guide-dismiss button:hover { border-color: var(--accent); color: #7eb3ff; }
+
+@media (max-width: 700px) {
+  .builder-layout { grid-template-columns: 1fr; }
+  .builder-sidebar { display: none; }
+  .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- Header -->
+  <header class="header">
+    <div>
+      <div class="wordmark">
+        <span class="wordmark-main">Resume Builder</span>
+        <span class="wordmark-tag">AI</span>
+      </div>
+      <p class="header-sub">Build a high-quality resume or CV from scratch — job by job, industry by industry</p>
+    </div>
+    <div class="mode-pill">
+      <button class="active" data-mode="claude" onclick="setMode('claude')">Claude</button>
+      <button data-mode="lm" onclick="setMode('lm')">LM Studio</button>
+    </div>
+  </header>
+
+  <div id="lm-url-row">
+    <div class="field"><label>LM Studio Server URL</label><input id="lm-url" type="text" value="http://localhost:1234" placeholder="http://localhost:1234" /></div>
+    <div id="lm-status-row" style="margin-top:6px;font-size:11px;color:var(--muted);display:flex;align-items:center;gap:8px;">
+      <span id="lm-status-dot" style="width:7px;height:7px;border-radius:50%;background:var(--subtle);flex-shrink:0;"></span>
+      <span id="lm-status-text">Click "Check Connection" to verify LM Studio is ready</span>
+      <button onclick="pingLMStudio()" style="background:var(--raised);border:1px solid var(--border);border-radius:5px;padding:2px 10px;font-size:11px;color:var(--muted);cursor:pointer;font-family:inherit;">Check Connection</button>
+    </div>
+  </div>
+
+  <div id="error-box"></div>
+
+  <!-- How to use guide -->
+  <div id="guide-panel">
+    <button id="guide-toggle" onclick="toggleGuide()">
+      <span class="guide-badge">Guide</span>
+      <div>
+        <div class="guide-toggle-title">How to use Resume Builder</div>
+        <div class="guide-toggle-sub">What each step does, what the expert interview is, and tips for best results</div>
+      </div>
+      <span class="guide-chevron">▾</span>
+    </button>
+    <div id="guide-body">
+      <p class="guide-intro">
+        Resume Builder helps you capture your full work history and generate strong, industry-specific bullet points for each role — without needing an existing resume. Work through your jobs one at a time. For each role, the AI either generates bullets from your description or runs an expert interview to pull out the details that make strong resume content. When you're done, build either a complete Master Document or a date-trimmed Recent History version. <strong>Neither output is application-ready</strong> — run it through Resume Analyzer to target it for a specific job.
+      </p>
+
+      <div style="margin-bottom:24px;">
+        <div class="guide-section-title">The Four Steps</div>
+        <div class="guide-steps-grid">
+          <div class="guide-step-card">
+            <div class="guide-step-badge"><div class="guide-step-badge-num">1</div></div>
+            <div class="guide-step-body">
+              <div class="guide-step-name">Personal Information</div>
+              <div class="guide-step-desc">Your name, contact details, LinkedIn URL, and optional portfolio or GitHub link. No target role or job description here — the builder isn't about targeting, it's about capturing your history accurately.</div>
+            </div>
+          </div>
+          <div class="guide-step-card">
+            <div class="guide-step-badge"><div class="guide-step-badge-num">2</div></div>
+            <div class="guide-step-body">
+              <div class="guide-step-name">Work History</div>
+              <div class="guide-step-desc">Add each role with its own industry tag. This is the core of the builder — each role is written independently using the language and standards of that specific industry. A role in retail purchasing gets retail purchasing bullets. A role in manufacturing operations gets manufacturing operations bullets. The industry tag travels with the role, not the document.</div>
+            </div>
+          </div>
+          <div class="guide-step-card">
+            <div class="guide-step-badge"><div class="guide-step-badge-num">3</div></div>
+            <div class="guide-step-body">
+              <div class="guide-step-name">Supporting Sections</div>
+              <div class="guide-step-desc">Education, certifications, skills (rough list — AI organizes into categories), and optional extras. CV mode unlocks Publications, Languages with standard proficiency levels, and additional academic sections.</div>
+            </div>
+          </div>
+          <div class="guide-step-card">
+            <div class="guide-step-badge"><div class="guide-step-badge-num">4</div></div>
+            <div class="guide-step-body">
+              <div class="guide-step-name">Build Document</div>
+              <div class="guide-step-desc">Choose Master Document (every role, complete history) or Recent History (last 10 or 15 years, trimmed by date only — no AI judgment about relevance). The document opens in a review editor where you can make changes and request revisions before exporting.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-bottom:24px;">
+        <div class="guide-section-title">The Expert Interview</div>
+        <div class="guide-steps-grid">
+          <div class="guide-step-card">
+            <div class="guide-step-badge"><div class="guide-step-badge-num opt" style="font-size:14px;">?</div></div>
+            <div class="guide-step-body">
+              <div class="guide-step-name">When it activates</div>
+              <div class="guide-step-desc">If your role description is under 40 words, the expert interview activates automatically before generating bullets. 40 words is roughly two or three short sentences — not enough for the AI to produce strong, specific content. You can also start the interview manually on any role by clicking "Expert Interview" after generating bullets.</div>
+            </div>
+          </div>
+          <div class="guide-step-card">
+            <div class="guide-step-badge"><div class="guide-step-badge-num opt" style="font-size:14px;">?</div></div>
+            <div class="guide-step-body">
+              <div class="guide-step-name">What it asks</div>
+              <div class="guide-step-desc">The AI generates targeted questions based on the job title and industry — not generic questions. A fast food crew member gets questions about volume, speed, and customer handling. A restaurant manager gets questions about labor cost, food cost, and scheduling. A manufacturing supervisor gets questions about throughput, downtime, and safety. The number of questions varies: 3–4 for entry-level roles, 5–6 for mid-level, 6–8 for senior or executive.</div>
+            </div>
+          </div>
+          <div class="guide-step-card">
+            <div class="guide-step-badge"><div class="guide-step-badge-num opt" style="font-size:14px;">?</div></div>
+            <div class="guide-step-body">
+              <div class="guide-step-name">How answers are used</div>
+              <div class="guide-step-desc">Your answers inform the bullet generation but never appear verbatim in the document. The AI uses them to write strong, specific, metric-backed bullets in proper resume format. Answer naturally — no need to write in resume language. The messier and more specific your answers, the better the output. You can skip any question or skip the whole interview and generate from your description alone.</div>
+            </div>
+          </div>
+          <div class="guide-step-card">
+            <div class="guide-step-badge"><div class="guide-step-badge-num opt" style="font-size:14px;">✓</div></div>
+            <div class="guide-step-body">
+              <div class="guide-step-name">Approving a role</div>
+              <div class="guide-step-desc">After bullets are generated, review and refine them using the feedback field — describe what to change and the AI will revise only what you requested. When you're happy, click Approve. The sidebar dot turns green and that role is locked into the final document. You can come back and unapprove any role to make more changes before building.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-bottom:24px;">
+        <div class="guide-section-title">Build Options</div>
+        <div class="guide-steps-grid">
+          <div class="guide-step-card">
+            <div class="guide-step-badge"><div class="guide-step-badge-num" style="font-size:13px;">📋</div></div>
+            <div class="guide-step-body">
+              <div class="guide-step-name">Master Document</div>
+              <div class="guide-step-desc">Every role included, fully written, no cuts. Your complete professional record. Good for long-term record keeping, as input for the analyzer, or as a reference document. If you're building a CV, this is essentially what a CV is — use this option.</div>
+            </div>
+          </div>
+          <div class="guide-step-card">
+            <div class="guide-step-badge"><div class="guide-step-badge-num" style="font-size:13px;">📄</div></div>
+            <div class="guide-step-body">
+              <div class="guide-step-name">Recent History (10 or 15 Years)</div>
+              <div class="guide-step-desc">Same bullets, same quality — just trimmed by date. No AI judgment about relevance, just a cutoff. 10 years is standard for most resume formats. 15 years is better for senior roles or fields where earlier experience still matters. Roles with no parseable end date are kept.</div>
+            </div>
+          </div>
+          <div class="guide-step-card">
+            <div class="guide-step-badge"><div class="guide-step-badge-num opt" style="font-size:14px;">⚠</div></div>
+            <div class="guide-step-body">
+              <div class="guide-step-name">Neither output is application-ready</div>
+              <div class="guide-step-desc">The document produced here is a high-quality starting point — not something to send to a recruiter. It hasn't been tailored to a specific job, checked for ATS compatibility, or aligned to a job description. Run it through Resume Analyzer before submitting anywhere. The analyzer will do the targeting, keyword alignment, triage, and final polish.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="guide-tips">
+        <div class="guide-tip">
+          <div class="guide-tip-icon">🏭</div>
+          <div class="guide-tip-title">Industry per role matters</div>
+          <div class="guide-tip-text">Each role gets its own industry tag — not a document-level setting. Someone who worked in retail, then moved to healthcare administration, then to manufacturing procurement gets bullets that sound right for each job's world.</div>
+        </div>
+        <div class="guide-tip">
+          <div class="guide-tip-icon">📏</div>
+          <div class="guide-tip-title">40-word threshold</div>
+          <div class="guide-tip-text">40 words is about two short sentences. Anything less and the AI doesn't have enough to work from — the expert interview fills that gap. More detail always produces better bullets, interview or not.</div>
+        </div>
+        <div class="guide-tip">
+          <div class="guide-tip-icon">🔢</div>
+          <div class="guide-tip-title">Numbers matter most</div>
+          <div class="guide-tip-text">The AI will never invent metrics. Where numbers are missing, it writes [add your number] as a placeholder. The expert interview questions are specifically designed to help you remember the numbers — dollar amounts, percentages, team sizes, volumes.</div>
+        </div>
+        <div class="guide-tip">
+          <div class="guide-tip-icon">📋</div>
+          <div class="guide-tip-title">CV vs Resume</div>
+          <div class="guide-tip-text">Resume: industry-specific bullets, standard format, good starting point for targeted applications. CV: same bullets plus publications, languages with proficiency levels, academic sections. Switch the toggle before starting — it affects what fields appear and how content is generated.</div>
+        </div>
+        <div class="guide-tip">
+          <div class="guide-tip-icon">💾</div>
+          <div class="guide-tip-title">Nothing is saved</div>
+          <div class="guide-tip-text">All data lives in this browser session. Nothing is stored between sessions. Use the Copy button or Save as PDF to preserve your work before closing the tab. If you close the tab, start over.</div>
+        </div>
+        <div class="guide-tip">
+          <div class="guide-tip-icon">➡</div>
+          <div class="guide-tip-title">Next step: Analyzer</div>
+          <div class="guide-tip-text">Once you have a document you're happy with, open Resume Analyzer. Paste or upload the document, enter a target role and job description, and let the analyzer tailor it, fix ATS issues, and produce a polished final version ready to submit.</div>
+        </div>
+      </div>
+
+      <div class="guide-dismiss">
+        <button onclick="dismissGuide()">Got it — collapse this</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Doc type -->
+  <div class="doc-type-row">
+    <button class="doc-type-btn active" data-type="resume" onclick="setDocType('resume')">
+      <span class="dt-icon">📄</span>
+      <span class="dt-name">Resume</span>
+      <span class="dt-desc">Industry-specific bullet points · US/UK private sector standard</span>
+    </button>
+    <button class="doc-type-btn" data-type="cv" onclick="setDocType('cv')">
+      <span class="dt-icon">📋</span>
+      <span class="dt-name">Full CV</span>
+      <span class="dt-desc">Comprehensive · No length limit · Academic / medical / international</span>
+    </button>
+  </div>
+  <button class="doc-explain-toggle" onclick="toggleDocExplain(this)">▾ Not sure which to choose?</button>
+  <div id="doc-explain-panel">
+    <div class="doc-explain-grid">
+      <div class="doc-explain-col">
+        <div class="doc-explain-label resume-color">📄 Resume</div>
+        <ul class="doc-explain-list">
+          <li>1–2 pages, focused on relevance</li>
+          <li>Standard for US/UK private sector</li>
+          <li>3–5 bullets per role</li>
+          <li>Skills limited to most relevant keywords</li>
+        </ul>
+      </div>
+      <div class="doc-explain-col">
+        <div class="doc-explain-label cv-color">📋 Full CV</div>
+        <ul class="doc-explain-list">
+          <li>No page limit — comprehensive record</li>
+          <li>Standard in academia, medicine, research</li>
+          <li>4–7 bullets per role with fuller context</li>
+          <li>Publications, patents, research included</li>
+        </ul>
+      </div>
+    </div>
+    <div class="doc-explain-when">
+      <strong>Use Resume</strong> for most US/UK private sector jobs. <strong>Use CV</strong> for academic, medical, research, or international applications.
+    </div>
+  </div>
+
+  <!-- Main builder layout -->
+  <div class="builder-layout">
+
+    <!-- Sidebar -->
+    <div class="builder-sidebar">
+      <div class="sidebar-steps">
+        <div class="sidebar-step active" onclick="goToStep('personal')" id="nav-personal">
+          <span class="step-dot"></span>
+          <span>Personal Info</span>
+        </div>
+        <div class="sidebar-step" onclick="goToStep('roles')" id="nav-roles">
+          <span class="step-dot"></span>
+          <span>Work History</span>
+        </div>
+        <div id="role-nav-list" class="sidebar-role-list"></div>
+        <div class="sidebar-step" onclick="goToStep('supporting')" id="nav-supporting">
+          <span class="step-dot"></span>
+          <span>Supporting Sections</span>
+        </div>
+        <div class="sidebar-step" onclick="goToStep('build')" id="nav-build">
+          <span class="step-dot"></span>
+          <span>Build Document</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main panels -->
+    <div class="builder-main">
+
+      <!-- PANEL: Personal Info -->
+      <div class="builder-panel active" id="panel-personal">
+        <div class="section-header">
+          <div class="section-title">Personal Information</div>
+          <div class="section-sub">Your contact details and professional identity</div>
+        </div>
+        <div class="grid-2">
+          <div class="field"><label>Full Name *</label><input id="pi-name" type="text" placeholder="Jane Smith" /></div>
+          <div class="field"><label>Professional Title (optional)</label><input id="pi-title" type="text" placeholder="e.g. Senior Purchasing Manager" /></div>
+        </div>
+        <div class="grid-3">
+          <div class="field"><label>Email *</label><input id="pi-email" type="email" placeholder="jane@email.com" /></div>
+          <div class="field"><label>Phone</label><input id="pi-phone" type="tel" placeholder="+1 (555) 000-0000" /></div>
+          <div class="field"><label>Location (City, State)</label><input id="pi-location" type="text" placeholder="Chicago, IL" /></div>
+        </div>
+        <div class="grid-2">
+          <div class="field"><label>LinkedIn URL</label><input id="pi-linkedin" type="url" placeholder="linkedin.com/in/janesmith" /></div>
+          <div class="field"><label>GitHub / Portfolio URL (optional)</label><input id="pi-portfolio" type="url" placeholder="github.com/janesmith" /></div>
+        </div>
+        <div style="margin-top:8px;" class="btn-row right">
+          <button class="btn-primary" onclick="savePersonalAndNext()">Continue to Work History →</button>
+        </div>
+      </div>
+
+      <!-- PANEL: Work History -->
+      <div class="builder-panel" id="panel-roles">
+        <div class="section-header">
+          <div class="section-title">Work History</div>
+          <div class="section-sub">Add each role. The AI will help generate strong bullet points for each one.</div>
+        </div>
+        <div id="role-cards-container"></div>
+        <button class="btn-add" onclick="addRole()">+ Add a Role</button>
+        <div style="margin-top:20px;" class="btn-row spread">
+          <button class="btn-secondary" onclick="goToStep('personal')">← Back</button>
+          <button class="btn-primary" onclick="goToStep('supporting')">Continue to Supporting Sections →</button>
+        </div>
+      </div>
+
+      <!-- PANEL: Supporting Sections -->
+      <div class="builder-panel" id="panel-supporting">
+        <div class="section-header">
+          <div class="section-title">Supporting Sections</div>
+          <div class="section-sub">Education, certifications, skills, and more</div>
+        </div>
+
+        <!-- Education -->
+        <div class="support-card">
+          <div class="support-card-head">
+            <div class="support-card-title">Education</div>
+            <button class="btn-add" style="width:auto;padding:5px 14px;font-size:12px;" onclick="addEducation()">+ Add</button>
+          </div>
+          <div id="education-list"></div>
+        </div>
+
+        <!-- Certifications -->
+        <div class="support-card">
+          <div class="support-card-head">
+            <div class="support-card-title">Certifications & Licenses</div>
+            <button class="btn-add" style="width:auto;padding:5px 14px;font-size:12px;" onclick="addCert()">+ Add</button>
+          </div>
+          <div id="cert-list"></div>
+        </div>
+
+        <!-- Skills -->
+        <div class="support-card">
+          <div class="support-card-head"><div class="support-card-title">Skills</div></div>
+          <div class="field mb-14">
+            <label>Add your skills — rough list is fine, AI will organize them</label>
+            <textarea id="skills-raw" rows="3" placeholder="e.g. Vendor negotiation, SAP, Excel, Procurement, Six Sigma, Team leadership, RFQ management..."></textarea>
+          </div>
+        </div>
+
+        <!-- CV-only sections -->
+        <div id="cv-only-sections" style="display:none;">
+          <div class="support-card">
+            <div class="support-card-head">
+              <div class="support-card-title">Publications & Presentations</div>
+              <button class="btn-add" style="width:auto;padding:5px 14px;font-size:12px;" onclick="addPublication()">+ Add</button>
+            </div>
+            <div id="pub-list"></div>
+            <div class="field" style="margin-top:10px;">
+              <label>Citation format</label>
+              <select id="citation-format">
+                <option value="apa">APA (academic/research)</option>
+                <option value="mla">MLA (humanities)</option>
+                <option value="bluebook">Bluebook (legal)</option>
+                <option value="business">Business/trade (simplified)</option>
+              </select>
+            </div>
+          </div>
+          <div class="support-card">
+            <div class="support-card-head"><div class="support-card-title">Languages</div>
+              <button class="btn-add" style="width:auto;padding:5px 14px;font-size:12px;" onclick="addLanguage()">+ Add</button>
+            </div>
+            <div id="lang-list"></div>
+          </div>
+        </div>
+
+        <!-- Optional sections -->
+        <div class="support-card">
+          <div class="support-card-head"><div class="support-card-title">Awards & Honors (optional)</div></div>
+          <div class="field"><textarea id="awards-raw" rows="2" placeholder="e.g. Employee of the Year 2022, Dean's List 2018-2019..."></textarea></div>
+        </div>
+
+        <div class="btn-row spread" style="margin-top:8px;">
+          <button class="btn-secondary" onclick="goToStep('roles')">← Back</button>
+          <button class="btn-primary" onclick="goToStep('build')">Continue to Build →</button>
+        </div>
+      </div>
+
+      <!-- PANEL: Build Document -->
+      <div class="builder-panel" id="panel-build">
+        <div class="section-header">
+          <div class="section-title">Build Document</div>
+          <div class="section-sub">Choose how much of your history to include, then generate</div>
+        </div>
+
+        <div id="build-summary"></div>
+
+        <!-- Build option cards -->
+        <div class="build-options">
+          <div class="build-option-card selected" id="opt-full" onclick="selectBuildOption('full')">
+            <div class="build-option-icon">📋</div>
+            <div class="build-option-name">Master Document</div>
+            <div class="build-option-desc">Every role you added, fully written, no cuts. Your complete professional history in one place.</div>
+            <div class="build-option-when">Choose this if you want a comprehensive record, are building a CV, or want the fullest possible starting point for the analyzer.</div>
+          </div>
+          <div class="build-option-card" id="opt-recent" onclick="selectBuildOption('recent')">
+            <div class="build-option-icon">📄</div>
+            <div class="build-option-name">Recent History</div>
+            <div class="build-option-desc">Only roles from the last 10 or 15 years. Same bullets, same quality — just trimmed by date.</div>
+            <div class="build-option-when">Choose this if your earlier roles are less relevant to where your career is now.</div>
+          </div>
+        </div>
+
+        <!-- Year cutoff toggle (shown when Recent History is selected) -->
+        <div class="cutoff-row" id="cutoff-row">
+          <button class="cutoff-btn selected" id="cutoff-10" onclick="setCutoff(10)">10 Years</button>
+          <button class="cutoff-btn" id="cutoff-15" onclick="setCutoff(15)">15 Years</button>
+        </div>
+        <div class="cutoff-explain" id="cutoff-explain"></div>
+
+        <div style="margin-top:20px;">
+          <button class="btn-primary" id="build-btn" onclick="buildDocument()" style="width:100%;padding:14px;font-size:14px;">
+            Generate <span id="build-type-label">Master Document</span>
+          </button>
+        </div>
+        <div class="spin-row" id="build-spinner" style="display:none;justify-content:center;margin-top:16px;">
+          <div class="spin-ring"></div>
+          <span id="build-spinner-label">Building your document…</span>
+        </div>
+
+        <div id="doc-review-section">
+          <div class="doc-review-header">
+            <div>
+              <div class="doc-review-title" id="doc-review-title">Your Document — Ready to Review</div>
+              <div class="doc-review-sub">Edit directly or describe changes below</div>
+            </div>
+            <div class="btn-row">
+              <button class="btn-secondary" onclick="copyDocument()" style="font-size:12px;padding:7px 14px;">Copy</button>
+              <button class="btn-secondary" onclick="printDocument()" style="font-size:12px;padding:7px 14px;">⬇ Save as PDF</button>
+              <span id="doc-version" style="font-size:11px;color:var(--muted);padding:0 4px;">Version 1</span>
+            </div>
+          </div>
+          <textarea id="doc-editor" spellcheck="true" placeholder="Your document will appear here…"></textarea>
+          <div class="doc-feedback-row">
+            <textarea id="doc-feedback-input" rows="1" placeholder="Describe what to change… e.g. 'make the summary shorter', 'fix the dates on my second role'" oninput="autoResizeFeedback(this)"></textarea>
+            <button class="btn-primary" id="apply-feedback-btn" onclick="applyFeedback()" style="padding:9px 18px;font-size:13px;white-space:nowrap;">Apply</button>
+          </div>
+          <div class="doc-version" id="doc-version-note">Tip: Review every date, metric, and job title carefully. You know your history better than any AI.</div>
+        </div>
+
+        <!-- Analyzer callout — shown after document is generated -->
+        <div class="analyzer-callout" id="analyzer-callout">
+          <div class="analyzer-callout-title">⚠ This is a starting point, not an application-ready document</div>
+          <div class="analyzer-callout-body">
+            The document above captures your work history with strong, industry-specific bullet points — but it has not been tailored to any specific job opening, checked for ATS compatibility, or aligned to a job description.<br><br>
+            <strong>Before sending this anywhere, run it through Resume Analyzer.</strong> The analyzer will tailor it to the role you're applying for, fix ATS issues, align keywords to a job description, audit your career narrative, and produce a polished final version ready to submit.
+          </div>
+        </div>
+
+      </div>
+
+    </div><!-- end builder-main -->
+  </div><!-- end builder-layout -->
+
+</div><!-- end shell -->
+
+<!-- PDF print area -->
+<div id="pdf-print-area">
+  <div id="pdf-document"></div>
+</div>
+
+<script>
+
+// ══════════════════════════════════════════════════════
+// GUIDE PANEL
+// ══════════════════════════════════════════════════════
+function toggleGuide() {
+  const panel = document.getElementById('guide-panel');
+  panel.classList.toggle('collapsed');
+  localStorage.setItem('rb_guide_collapsed', panel.classList.contains('collapsed') ? '1' : '0');
+}
+
+function dismissGuide() {
+  const panel = document.getElementById('guide-panel');
+  panel.classList.add('collapsed');
+  localStorage.setItem('rb_guide_collapsed', '1');
+}
+
+// Restore collapsed state on load
+(function() {
+  if (localStorage.getItem('rb_guide_collapsed') === '1') {
+    const panel = document.getElementById('guide-panel');
+    if (panel) panel.classList.add('collapsed');
+  }
+})();
+
+// ══════════════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════════════
+let mode          = 'claude';
+let docType       = 'resume';
+let currentStep   = 'personal';
+let roles         = [];       // array of role objects
+let education     = [];
+let certs         = [];
+let publications  = [];
+let languages     = [];
+let revisionCount  = 1;
+let revisionHistory = [];
+let isBuilding     = false;
+let isRevising     = false;
+let buildOption    = 'full';  // 'full' or 'recent'
+let yearCutoff     = 10;      // 10 or 15
+
+// Role object shape:
+// { id, company, title, industry, startDate, endDate, current, description,
+//   questions:[], answers:[], interviewDone, bullets:'', approved }
+
+function uid() { return Date.now() + Math.random().toString(36).slice(2,7); }
+
+// ══════════════════════════════════════════════════════
+// MODE & DOC TYPE
+// ══════════════════════════════════════════════════════
+function setMode(m) {
+  mode = m;
+  document.querySelectorAll('.mode-pill button').forEach(b => b.classList.toggle('active', b.dataset.mode === m));
+  const lmRow = document.getElementById('lm-url-row');
+  if (m === 'lm') lmRow.classList.add('visible'); else lmRow.classList.remove('visible');
+}
+
+function setDocType(t) {
+  docType = t;
+  document.querySelectorAll('.doc-type-btn').forEach(b => b.classList.toggle('active', b.dataset.type === t));
+  document.getElementById('cv-only-sections').style.display = t === 'cv' ? 'block' : 'none';
+  document.getElementById('build-label').textContent = t === 'cv' ? 'CV' : 'Resume';
+}
+
+function toggleDocExplain(btn) {
+  const panel = document.getElementById('doc-explain-panel');
+  panel.classList.toggle('visible');
+  btn.textContent = panel.classList.contains('visible') ? '▴ Hide explanation' : '▾ Not sure which to choose?';
+}
+
+// ══════════════════════════════════════════════════════
+// NAVIGATION
+// ══════════════════════════════════════════════════════
+function goToStep(step) {
+  currentStep = step;
+  document.querySelectorAll('.builder-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.sidebar-step').forEach(s => s.classList.remove('active'));
+  const panel = document.getElementById('panel-' + step);
+  if (panel) panel.classList.add('active');
+  const nav = document.getElementById('nav-' + step);
+  if (nav) nav.classList.add('active');
+  if (step === 'build') refreshBuildSummary();
+}
+
+function savePersonalAndNext() {
+  const name = document.getElementById('pi-name').value.trim();
+  if (!name) { showError('Please enter your full name.'); return; }
+  clearError();
+  goToStep('roles');
+}
+
+
+
+async function pingLMStudio() {
+  const dot  = document.getElementById('lm-status-dot');
+  const text = document.getElementById('lm-status-text');
+  dot.style.background  = '#f59e0b';
+  text.textContent = 'Checking…';
+  const err = await checkLMStudio();
+  if (err) {
+    dot.style.background  = '#ef4444';
+    text.textContent = err;
+  } else {
+    const base = (document.getElementById('lm-url').value.trim() || 'http://localhost:1234').replace(/\/$/, '');
+    const res  = await fetch(base + '/v1/models');
+    const data = await res.json();
+    const modelName = data.data?.[0]?.id || 'model';
+    dot.style.background  = '#22c55e';
+    text.textContent = 'Connected — ' + modelName + ' loaded and ready';
+    clearError();
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// LM STUDIO PRE-FLIGHT CHECK
+// ══════════════════════════════════════════════════════
+async function checkLMStudio() {
+  // Returns null if OK, or an error message string if not ready
+  if (mode !== 'lm') return null;
+  const base = (document.getElementById('lm-url').value.trim() || 'http://localhost:1234').replace(/\/$/, '');
+  try {
+    // Use the /v1/models endpoint — lightweight, no generation needed
+    const res = await fetch(base + '/v1/models', { method: 'GET' });
+    if (!res.ok) {
+      return 'LM Studio server returned an error (' + res.status + '). Make sure the server is running. (Server → Start Server in LM Studio)';
+    }
+    const data = await res.json();
+    const models = data.data || [];
+    if (models.length === 0) {
+      return 'LM Studio is running but no model is loaded. Open LM Studio, go to the Models tab, select a model, and click Load. (Recommended: 13B+ parameters, 16K+ context window)';
+    }
+    return null; // all good
+  } catch (e) {
+    if (e.message === 'Failed to fetch' || e.name === 'TypeError') {
+      return 'Cannot reach LM Studio at ' + base + '. Start the server in LM Studio first. (Server → Start Server)';
+    }
+    return 'LM Studio check failed: ' + e.message;
+  }
+}
+
+async function requireLMReady() {
+  // Call before any LM generation. Shows error and returns false if not ready.
+  const err = await checkLMStudio();
+  if (err) {
+    showError(err);
+    return false;
+  }
+  return true;
+}
+
+// ══════════════════════════════════════════════════════
+// ROLES
+// ══════════════════════════════════════════════════════
+function addRole() {
+  const role = {
+    id: uid(), company: '', title: '', industry: '', startDate: '', endDate: '',
+    current: false, description: '', questions: [], answers: [],
+    interviewDone: false, bullets: '', approved: false,
+    bulletRevisions: [], isGenerating: false, isRevising: false
+  };
+  roles.push(role);
+  renderRoleCards();
+  renderRoleNav();
+  // Scroll to the new card
+  setTimeout(() => {
+    const el = document.getElementById('role-card-' + role.id);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 100);
+}
+
+function removeRole(id) {
+  roles = roles.filter(r => r.id !== id);
+  renderRoleCards();
+  renderRoleNav();
+}
+
+function getRoleById(id) { return roles.find(r => r.id === id); }
+
+function updateRoleField(id, field, value) {
+  const r = getRoleById(id);
+  if (r) {
+    r[field] = value;
+    // Update sidebar nav
+    renderRoleNav();
+    // Update card header if title/company changed
+    const header = document.getElementById('role-header-' + id);
+    if (header) {
+      const t = r.title || 'New Role';
+      const c = r.company || '';
+      header.querySelector('.role-card-title').textContent = t;
+      header.querySelector('.role-card-subtitle').textContent = c;
+    }
+  }
+}
+
+function renderRoleCards() {
+  const container = document.getElementById('role-cards-container');
+  if (roles.length === 0) {
+    container.innerHTML = '<p style="color:var(--muted);font-size:13px;text-align:center;padding:24px 0;">No roles added yet. Click the button below to add your first role.</p>';
+    return;
+  }
+  container.innerHTML = roles.map(r => renderRoleCard(r)).join('');
+}
+
+function renderRoleCard(r) {
+  const title = r.title || 'New Role';
+  const company = r.company || '';
+  const isCV = docType === 'cv';
+  const bulletCount = isCV ? '4–7' : '3–5';
+
+  return `<div class="role-card" id="role-card-${r.id}">
+    <div class="role-card-header" id="role-header-${r.id}">
+      <div>
+        <div class="role-card-title">${escHtml(title)}</div>
+        <div class="role-card-subtitle">${escHtml(company)}</div>
+      </div>
+      <button class="btn-remove-role" onclick="removeRole('${r.id}')">Remove</button>
+    </div>
+
+    <div class="grid-2">
+      <div class="field"><label>Job Title *</label>
+        <input type="text" value="${escHtml(r.title)}" placeholder="e.g. Purchasing Agent"
+          onchange="updateRoleField('${r.id}','title',this.value)" oninput="updateRoleField('${r.id}','title',this.value)" /></div>
+      <div class="field"><label>Company *</label>
+        <input type="text" value="${escHtml(r.company)}" placeholder="e.g. Acme Corporation"
+          onchange="updateRoleField('${r.id}','company',this.value)" oninput="updateRoleField('${r.id}','company',this.value)" /></div>
+    </div>
+    <div class="grid-2">
+      <div class="field"><label>Industry for this role *</label>
+        <input type="text" value="${escHtml(r.industry)}" placeholder="e.g. Industrial Manufacturing"
+          onchange="updateRoleField('${r.id}','industry',this.value)" oninput="updateRoleField('${r.id}','industry',this.value)" /></div>
+      <div class="field"><label>Start Date</label>
+        <input type="text" value="${escHtml(r.startDate)}" placeholder="Jan 2018"
+          onchange="updateRoleField('${r.id}','startDate',this.value)" /></div>
+    </div>
+    <div class="grid-2 mb-14">
+      <div class="field"><label>End Date</label>
+        <input type="text" value="${escHtml(r.endDate)}" placeholder="Mar 2022 (or leave blank if current)"
+          ${r.current ? 'disabled' : ''}
+          onchange="updateRoleField('${r.id}','endDate',this.value)" /></div>
+      <div class="field" style="display:flex;align-items:flex-end;padding-bottom:2px;">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;text-transform:none;font-size:13px;color:var(--muted);letter-spacing:0;">
+          <input type="checkbox" ${r.current ? 'checked' : ''} onchange="toggleCurrentRole('${r.id}',this.checked)"
+            style="width:auto;accent-color:var(--accent);" />
+          Current role
+        </label>
+      </div>
+    </div>
+    <div class="field mb-14">
+      <label>What did you do in this role? <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--subtle);">(optional — the more you share, the better the bullets)</span></label>
+      <textarea rows="3" placeholder="Describe your responsibilities, any projects, accomplishments, or things you're proud of. Don't worry about format — just write naturally."
+        onchange="updateRoleField('${r.id}','description',this.value)"
+        oninput="updateRoleField('${r.id}','description',this.value)">${escHtml(r.description)}</textarea>
+    </div>
+
+    ${r.approved
+      ? `<div class="bullets-approved">✓ Approved — ${getRoleDepth(r).targetBullets} bullets ready</div>
+         ${renderBulletsPanel(r, true)}`
+      : `<div class="btn-row" style="align-items:center;flex-wrap:wrap;">
+           <button class="btn-primary" onclick="startRoleGeneration('${r.id}')"
+             ${r.isGenerating ? 'disabled' : ''}>
+             ${r.bullets ? 'Regenerate Bullets' : 'Generate Bullets'}
+           </button>
+           ${r.bullets ? `<button class="btn-secondary" onclick="startExpertInterview('${r.id}')">Expert Interview</button>` : ''}
+           <span style="font-size:11px;color:var(--subtle);margin-left:4px;">
+             ${getRoleDepthLabel(r)}
+           </span>
+         </div>
+         ${r.isGenerating ? `<div class="spin-row"><div class="spin-ring"></div><span>Generating ${bulletCount} bullets…</span></div>` : ''}
+         ${r.bullets ? renderBulletsPanel(r, false) : ''}
+         ${r.questions.length > 0 && !r.interviewDone ? renderInterviewPanel(r) : ''}`
+    }
+  </div>`;
+}
+
+function renderBulletsPanel(r, approved) {
+  if (!r.bullets) return '';
+  return `<div class="bullets-panel" style="margin-top:${approved ? '0' : '14px'};">
+    <div class="bullets-header">
+      <div class="bullets-title">Generated Bullets</div>
+      <div class="bullets-status">${approved ? '✓ Approved' : 'Review & refine'}</div>
+    </div>
+    <div class="bullets-body" id="bullets-body-${r.id}">${escHtml(r.bullets)}</div>
+    ${!approved ? `
+    <div class="bullets-feedback">
+      <textarea id="bullet-feedback-${r.id}" placeholder="Describe what to change… e.g. 'add the cost savings I mentioned', 'make bullet 2 more specific'" rows="1"
+        oninput="autoResizeFeedback(this)"></textarea>
+      <button class="btn-primary" onclick="refineBullets('${r.id}')" style="padding:8px 16px;font-size:12px;white-space:nowrap;">Refine</button>
+    </div>
+    <div class="bullets-feedback" style="border-top:none;padding-top:0;">
+      <button class="btn-approve-role" onclick="approveRole('${r.id}')">✓ Approve these bullets</button>
+    </div>` : ''}
+  </div>`;
+}
+
+function renderInterviewPanel(r) {
+  const current = r.answers.length;
+  const total = r.questions.length;
+  const q = r.questions[current];
+  if (!q) return '';
+
+  const dots = r.questions.map((_, i) =>
+    `<div class="interview-dot ${i < current ? 'done' : i === current ? 'current' : ''}"></div>`
+  ).join('');
+
+  return `<div class="interview-panel" id="interview-panel-${r.id}">
+    <div class="interview-header">
+      <span class="interview-badge">Expert Interview</span>
+      <div>
+        <div class="interview-title">Question ${current + 1} of ${total}</div>
+        <div class="interview-sub">Your answers inform the bullets but won't appear verbatim in the document</div>
+      </div>
+    </div>
+    <div class="interview-progress">${dots}</div>
+    <div class="question-bubble">
+      <div class="question-label">Question ${current + 1}</div>
+      ${escHtml(q)}
+    </div>
+    <textarea class="answer-field" id="interview-answer-${r.id}" rows="3"
+      placeholder="Answer naturally — no need to write in resume format…"></textarea>
+    <div class="btn-row" style="margin-top:10px;">
+      <button class="btn-primary" onclick="submitInterviewAnswer('${r.id}')">
+        ${current + 1 < total ? 'Next Question →' : 'Finish & Generate Bullets'}
+      </button>
+      <span class="interview-skip" onclick="skipInterview('${r.id}')">Skip interview</span>
+    </div>
+  </div>`;
+}
+
+function toggleCurrentRole(id, checked) {
+  const r = getRoleById(id);
+  if (!r) return;
+  r.current = checked;
+  if (checked) r.endDate = '';
+  renderRoleCards();
+}
+
+
+// ══════════════════════════════════════════════════════
+// ROLE DEPTH CALCULATOR
+// ══════════════════════════════════════════════════════
+function parseYear(dateStr) {
+  if (!dateStr) return null;
+  const m = String(dateStr).match(/\b(\d{4})\b/);
+  return m ? parseInt(m[1]) : null;
+}
+
+function getRoleDepth(r) {
+  const isCV     = docType === 'cv';
+  const now      = new Date().getFullYear();
+  const isCurrent = r.current;
+
+  const startYear = parseYear(r.startDate);
+  const endYear   = isCurrent ? now : parseYear(r.endDate);
+
+  // Tenure in years (0 if unparseable)
+  const tenure = (startYear && endYear && endYear >= startYear)
+    ? endYear - startYear
+    : 0;
+
+  // Years ago (0 if current or unparseable)
+  const yearsAgo = isCurrent ? 0 : (endYear ? now - endYear : 0);
+
+  // Recency bucket
+  const isRecent  = yearsAgo <= 10;
+  const isMid     = yearsAgo > 10 && yearsAgo <= 15;
+  const isOld     = yearsAgo > 15;
+
+  // Tenure bucket
+  const isLong    = tenure >= 3;
+  const isMedTen  = tenure >= 1 && tenure < 3;
+  const isShort   = tenure < 1;
+
+  // CV always gets max depth
+  if (isCV) {
+    const cvBullets   = isLong ? 6 : isMedTen ? 5 : 3;
+    const cvQuestions = isLong ? 7 : isMedTen ? 5 : 3;
+    return { targetBullets: cvBullets, targetQuestions: cvQuestions, skipInterview: false };
+  }
+
+  // Resume — matrix of recency × tenure
+  let targetBullets, targetQuestions, skipInterview;
+
+  if (isRecent) {
+    if (isLong)   { targetBullets = 6; targetQuestions = 7; skipInterview = false; }
+    else if (isMedTen) { targetBullets = 4; targetQuestions = 5; skipInterview = false; }
+    else          { targetBullets = 2; targetQuestions = 3; skipInterview = false; }
+  } else if (isMid) {
+    if (isLong)   { targetBullets = 3; targetQuestions = 4; skipInterview = false; }
+    else if (isMedTen) { targetBullets = 2; targetQuestions = 2; skipInterview = false; }
+    else          { targetBullets = 1; targetQuestions = 0; skipInterview = true;  }
+  } else { // isOld (15+ years)
+    if (isLong)   { targetBullets = 2; targetQuestions = 2; skipInterview = false; }
+    else          { targetBullets = 1; targetQuestions = 0; skipInterview = true;  }
+  }
+
+  return { targetBullets, targetQuestions, skipInterview, tenure, yearsAgo, isRecent, isMid, isOld };
+}
+
+function getRoleDepthLabel(r) {
+  const d = getRoleDepth(r);
+  const isCV = docType === 'cv';
+  if (!parseYear(r.startDate) && !r.current) return '';
+  const bullets = d.targetBullets === 1 ? '1 bullet' : d.targetBullets + ' bullets';
+  const age = d.yearsAgo === 0 ? 'current' :
+              d.yearsAgo <= 10 ? 'recent' :
+              d.yearsAgo <= 15 ? '10–15 yrs ago' : '15+ yrs ago';
+  const ten = d.tenure === 0 ? '' : d.tenure === 1 ? '1 yr' : d.tenure + ' yrs';
+  const parts = [ten, age].filter(Boolean).join(' · ');
+  return '~' + bullets + (parts ? ' (' + parts + ')' : '');
+}
+
+// ══════════════════════════════════════════════════════
+// EXPERT INTERVIEW
+// ══════════════════════════════════════════════════════
+async function startExpertInterview(id) {
+  const r = getRoleById(id);
+  if (!r || !r.title || !r.industry) {
+    showError('Please enter a job title and industry before starting the expert interview.');
+    return;
+  }
+  // Pre-flight: check LM Studio is ready
+  if (mode === 'lm') {
+    const lmErr = await checkLMStudio();
+    if (lmErr) { showError(lmErr); return; }
+  }
+
+  r.questions = [];
+  r.answers = [];
+  r.interviewDone = false;
+  renderRoleCards();
+
+  // Show spinner while generating questions
+  const card = document.getElementById('role-card-' + id);
+  if (!card) return;
+
+  // Generate questions via AI
+  const sys = buildQuestionPrompt(r);
+  try {
+    const result = await callAI(sys, 'Generate exactly ' + depth2.targetQuestions + ' interview questions now. Output only a numbered list, no preamble.');
+    // Parse questions — numbered list
+    const lines = result.split('\n').filter(l => /^\d+[\.\)]/.test(l.trim()));
+    r.questions = lines.map(l => l.replace(/^\d+[\.\)]\s*/, '').trim()).filter(Boolean);
+    if (r.questions.length === 0) {
+      // Fallback: split by newlines
+      r.questions = result.split('\n').filter(l => l.trim().length > 10).slice(0, 7);
+    }
+    renderRoleCards();
+  } catch (e) {
+    showError('Could not generate interview questions: ' + e.message);
+  }
+}
+
+function buildQuestionPrompt(r) {
+  const isCV   = docType === 'cv';
+  const depth  = getRoleDepth(r);
+  const qCount = depth.targetQuestions;
+
+  return 'You are a career coach helping a candidate articulate their professional experience for a ' + (isCV ? 'CV' : 'resume') + '.' +
+    '\nRole: ' + r.title + '\nCompany: ' + (r.company || 'not specified') + '\nIndustry: ' + r.industry +
+    (r.description ? '\nThey described the role as: ' + r.description : '') +
+    '\n\nGenerate ' + qCount + ' targeted interview questions to draw out strong, specific, metric-backed content for this role.' +
+    '\nQuestions should be specific to the ' + r.title + ' role in the ' + r.industry + ' industry.' +
+    '\nFocus on: specific accomplishments, measurable outcomes, team or budget scope, tools/systems used, challenges overcome, process improvements.' +
+    (isCV ? '\nFor CV: also ask about publications, presentations, research contributions, teaching, or grant activity if relevant to this role.' : '') +
+    '\nAvoid generic questions. Each question should help surface content that would produce a strong resume bullet.' +
+    '\nOutput only a numbered list of questions. No preamble, no explanations.';
+}
+
+function isEntryLevel(title) {
+  const t = (title || '').toLowerCase();
+  return /\b(assistant|associate|junior|entry|intern|trainee|crew|cashier|worker|clerk)\b/.test(t);
+}
+
+function isSeniorLevel(title) {
+  const t = (title || '').toLowerCase();
+  return /\b(director|vp|vice president|head of|chief|cto|cfo|ceo|coo|managing|principal|partner|executive)\b/.test(t);
+}
+
+function submitInterviewAnswer(id) {
+  const r = getRoleById(id);
+  if (!r) return;
+  const input = document.getElementById('interview-answer-' + id);
+  const answer = input ? input.value.trim() : '';
+  r.answers.push(answer || '(skipped)');
+
+  if (r.answers.length >= r.questions.length) {
+    r.interviewDone = true;
+    renderRoleCards();
+    // Auto-generate bullets now that interview is done
+    startRoleGeneration(id);
+  } else {
+    renderRoleCards();
+  }
+}
+
+function skipInterview(id) {
+  const r = getRoleById(id);
+  if (!r) return;
+  r.interviewDone = true;
+  r.questions = [];
+  r.answers = [];
+  renderRoleCards();
+  startRoleGeneration(id);
+}
+
+// ══════════════════════════════════════════════════════
+// BULLET GENERATION
+// ══════════════════════════════════════════════════════
+async function startRoleGeneration(id) {
+  const r = getRoleById(id);
+  if (!r) return;
+  if (!r.title || !r.industry) {
+    showError('Please enter a job title and industry before generating bullets.');
+    return;
+  }
+
+  const depth     = getRoleDepth(r);
+  const wordCount = (r.description || '').trim().split(/\s+/).filter(Boolean).length;
+  // Threshold: ~22 words per expected bullet. If the description doesn't cover
+  // what we need, trigger the interview (unless depth says skip it).
+  const wordThreshold = depth.targetBullets * 22;
+  const needsMoreInfo = wordCount < wordThreshold && !r.interviewDone && r.questions.length === 0;
+
+  if (needsMoreInfo && !depth.skipInterview) {
+    await startExpertInterview(id);
+    return;
+  }
+
+  // Pre-flight: check LM Studio is ready before showing spinner
+  if (mode === 'lm') {
+    const lmErr = await checkLMStudio();
+    if (lmErr) { showError(lmErr); return; }
+  }
+
+  r.isGenerating = true;
+  r.approved = false;
+  renderRoleCards();
+
+  try {
+    const sys = buildBulletPrompt(r);
+    const result = await callAI(sys, 'Generate the ' + (docType === 'cv' ? 'CV' : 'resume') + ' bullets for this role now.');
+    r.bullets = result.trim();
+    r.bulletRevisions = [];
+    r.isGenerating = false;
+    renderRoleCards();
+  } catch(e) {
+    r.isGenerating = false;
+    renderRoleCards();
+    showError('Bullet generation failed for "' + r.title + '": ' + e.message);
+  }
+  renderRoleNav();
+}
+
+function buildBulletPrompt(r) {
+  const isCV   = docType === 'cv';
+  const depth  = getRoleDepth(r);
+  const bulletCount = depth.targetBullets;
+  const NL = '\n';
+
+  const interviewContext = r.questions.length > 0 && r.answers.length > 0
+    ? NL + NL + 'EXPERT INTERVIEW (candidate answers — use to inform bullets, do not copy verbatim):' + NL +
+      r.questions.map((q, i) => 'Q: ' + q + NL + 'A: ' + (r.answers[i] || '(no answer)')).join(NL + NL)
+    : '';
+
+  return 'You are an expert ' + r.industry + ' resume writer.' + NL +
+    'Write exactly ' + bulletCount + ' high-quality ' + (isCV ? 'CV' : 'resume') + ' bullet ' + (bulletCount === 1 ? 'point' : 'points') + ' for this role. Not fewer, not more.' + NL +
+    'Title: ' + r.title + NL +
+    'Company: ' + (r.company || 'not specified') + NL +
+    'Industry: ' + r.industry + NL +
+    'Dates: ' + (r.startDate || '?') + ' – ' + (r.current ? 'Present' : (r.endDate || '?')) +
+    (r.description ? NL + NL + 'Candidate description:' + NL + r.description : '') +
+    interviewContext + NL + NL +
+    'RULES:' + NL +
+    '- Start each bullet with a strong past-tense action verb (current role uses present tense)' + NL +
+    '- Focus on outcomes and impact, not just tasks' + NL +
+    '- Include specific metrics wherever the candidate provided them — do NOT invent numbers' + NL +
+    '- If a metric is missing, write [add your number] as a placeholder' + NL +
+    '- Use language and terminology appropriate for ' + r.industry + NL +
+    '- AUTHENTICITY: Never change the factual context of what the candidate actually did' + NL +
+    (isCV ? '- CV style: fuller context per bullet, include research/teaching/publication contributions if applicable' + NL : '') +
+    '- Output only the bullets, one per line starting with –' + NL +
+    '- No preamble, no section headers, no explanations';
+}
+
+async function refineBullets(id) {
+  const r = getRoleById(id);
+  if (!r || r.isRevising) return;
+  const feedback = document.getElementById('bullet-feedback-' + id);
+  const feedbackText = feedback ? feedback.value.trim() : '';
+  if (!feedbackText) return;
+
+  r.isRevising = true;
+  r.bulletRevisions.push(r.bullets);
+
+  const refineEl = document.getElementById('bullets-body-' + id);
+  if (refineEl) refineEl.style.opacity = '0.5';
+
+  try {
+    const sys = 'You are a resume editor for the ' + r.industry + ' industry.' +
+      ' The candidate is refining bullets for their role as ' + r.title + ' at ' + (r.company || 'their company') + '.' +
+      ' Make ONLY the changes described in the feedback. Preserve everything else.' +
+      ' AUTHENTICITY: Never change the factual context of any experience. Do not invent metrics.' +
+      ' Output only the updated bullets, one per line starting with –. No preamble.';
+    const userMsg = 'CURRENT BULLETS:\n' + r.bullets + '\n\nFEEDBACK:\n' + feedbackText;
+    const result = await callAI(sys, userMsg);
+    r.bullets = result.trim();
+    r.isRevising = false;
+    if (feedback) { feedback.value = ''; feedback.style.height = 'auto'; }
+    renderRoleCards();
+  } catch(e) {
+    r.isRevising = false;
+    if (refineEl) refineEl.style.opacity = '1';
+    showError('Refinement failed: ' + e.message);
+  }
+  renderRoleNav();
+}
+
+function approveRole(id) {
+  const r = getRoleById(id);
+  if (!r) return;
+  r.approved = true;
+  renderRoleCards();
+  renderRoleNav();
+}
+
+// ══════════════════════════════════════════════════════
+// SUPPORTING SECTIONS
+// ══════════════════════════════════════════════════════
+function addEducation() {
+  const id = uid();
+  education.push({ id, school:'', degree:'', field:'', year:'', gpa:'' });
+  renderEducation();
+}
+
+function removeEducation(id) {
+  education = education.filter(e => e.id !== id);
+  renderEducation();
+}
+
+function renderEducation() {
+  const el = document.getElementById('education-list');
+  if (!education.length) { el.innerHTML = '<p style="font-size:12px;color:var(--subtle);padding:4px 0;">No education added yet.</p>'; return; }
+  el.innerHTML = education.map(e => `
+    <div style="background:var(--raised);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:10px;">
+      <div class="grid-2" style="margin-bottom:10px;">
+        <div class="field"><label>School</label><input type="text" value="${escHtml(e.school)}" placeholder="University of Illinois" onchange="updateField(education,'${e.id}','school',this.value)" /></div>
+        <div class="field"><label>Degree</label><input type="text" value="${escHtml(e.degree)}" placeholder="B.S. Business Administration" onchange="updateField(education,'${e.id}','degree',this.value)" /></div>
+      </div>
+      <div class="grid-3">
+        <div class="field"><label>Field of Study</label><input type="text" value="${escHtml(e.field)}" placeholder="Supply Chain Management" onchange="updateField(education,'${e.id}','field',this.value)" /></div>
+        <div class="field"><label>Graduation Year</label><input type="text" value="${escHtml(e.year)}" placeholder="2016" onchange="updateField(education,'${e.id}','year',this.value)" /></div>
+        <div class="field"><label>GPA (optional)</label><input type="text" value="${escHtml(e.gpa)}" placeholder="3.8" onchange="updateField(education,'${e.id}','gpa',this.value)" /></div>
+      </div>
+      <button class="btn-remove-role" onclick="removeEducation('${e.id}')">Remove</button>
+    </div>`).join('');
+}
+
+function addCert() {
+  const id = uid();
+  certs.push({ id, name:'', issuer:'', year:'' });
+  renderCerts();
+}
+
+function removeCert(id) { certs = certs.filter(c => c.id !== id); renderCerts(); }
+
+function renderCerts() {
+  const el = document.getElementById('cert-list');
+  if (!certs.length) { el.innerHTML = '<p style="font-size:12px;color:var(--subtle);padding:4px 0;">No certifications added yet.</p>'; return; }
+  el.innerHTML = certs.map(c => `
+    <div style="background:var(--raised);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:10px;">
+      <div class="grid-3">
+        <div class="field"><label>Certification Name</label><input type="text" value="${escHtml(c.name)}" placeholder="CPSM" onchange="updateField(certs,'${c.id}','name',this.value)" /></div>
+        <div class="field"><label>Issuing Body</label><input type="text" value="${escHtml(c.issuer)}" placeholder="ISM" onchange="updateField(certs,'${c.id}','issuer',this.value)" /></div>
+        <div class="field"><label>Year</label><input type="text" value="${escHtml(c.year)}" placeholder="2020" onchange="updateField(certs,'${c.id}','year',this.value)" /></div>
+      </div>
+      <button class="btn-remove-role" onclick="removeCert('${c.id}')">Remove</button>
+    </div>`).join('');
+}
+
+function addPublication() {
+  const id = uid();
+  publications.push({ id, title:'', journal:'', year:'', authors:'' });
+  renderPublications();
+}
+
+function removePublication(id) { publications = publications.filter(p => p.id !== id); renderPublications(); }
+
+function renderPublications() {
+  const el = document.getElementById('pub-list');
+  if (!publications.length) { el.innerHTML = '<p style="font-size:12px;color:var(--subtle);padding:4px 0;">No publications added yet.</p>'; return; }
+  el.innerHTML = publications.map(p => `
+    <div style="background:var(--raised);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:10px;">
+      <div class="field mb-14"><label>Title</label><input type="text" value="${escHtml(p.title)}" placeholder="Publication or presentation title" onchange="updateField(publications,'${p.id}','title',this.value)" /></div>
+      <div class="grid-3">
+        <div class="field"><label>Journal / Venue</label><input type="text" value="${escHtml(p.journal)}" placeholder="Journal of Supply Chain Management" onchange="updateField(publications,'${p.id}','journal',this.value)" /></div>
+        <div class="field"><label>Year</label><input type="text" value="${escHtml(p.year)}" placeholder="2022" onchange="updateField(publications,'${p.id}','year',this.value)" /></div>
+        <div class="field"><label>Co-authors (optional)</label><input type="text" value="${escHtml(p.authors)}" placeholder="Smith, J., Jones, K." onchange="updateField(publications,'${p.id}','authors',this.value)" /></div>
+      </div>
+      <button class="btn-remove-role" onclick="removePublication('${p.id}')">Remove</button>
+    </div>`).join('');
+}
+
+function addLanguage() {
+  const id = uid();
+  languages.push({ id, language:'', proficiency:'Native' });
+  renderLanguages();
+}
+
+function removeLanguage(id) { languages = languages.filter(l => l.id !== id); renderLanguages(); }
+
+function renderLanguages() {
+  const el = document.getElementById('lang-list');
+  if (!languages.length) { el.innerHTML = '<p style="font-size:12px;color:var(--subtle);padding:4px 0;">No languages added yet.</p>'; return; }
+  const levels = ['Native','Fluent (C2)','Advanced (C1)','Upper-Intermediate (B2)','Intermediate (B1)','Basic (A2)'];
+  el.innerHTML = languages.map(l => `
+    <div style="background:var(--raised);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:10px;display:flex;gap:12px;align-items:flex-end;">
+      <div class="field" style="flex:2"><label>Language</label><input type="text" value="${escHtml(l.language)}" placeholder="Spanish" onchange="updateField(languages,'${l.id}','language',this.value)" /></div>
+      <div class="field" style="flex:2"><label>Proficiency</label>
+        <select onchange="updateField(languages,'${l.id}','proficiency',this.value)">
+          ${levels.map(lv => `<option ${l.proficiency === lv ? 'selected' : ''}>${lv}</option>`).join('')}
+        </select>
+      </div>
+      <button class="btn-remove-role" onclick="removeLanguage('${l.id}')">Remove</button>
+    </div>`).join('');
+}
+
+function updateField(arr, id, field, value) {
+  const item = arr.find(x => x.id === id);
+  if (item) item[field] = value;
+}
+
+// ══════════════════════════════════════════════════════
+// SIDEBAR ROLE NAV
+// ══════════════════════════════════════════════════════
+function renderRoleNav() {
+  const el = document.getElementById('role-nav-list');
+  if (!roles.length) { el.innerHTML = ''; return; }
+  el.innerHTML = roles.map(r => {
+    const label = r.title ? r.title.slice(0,20) + (r.title.length > 20 ? '…' : '') : 'New Role';
+    return `<div class="sidebar-role ${r.approved ? 'approved' : ''}" onclick="scrollToRole('${r.id}')">
+      <div class="role-dot"></div>
+      <span>${escHtml(label)}</span>
+    </div>`;
+  }).join('');
+}
+
+function scrollToRole(id) {
+  goToStep('roles');
+  setTimeout(() => {
+    const el = document.getElementById('role-card-' + id);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 50);
+}
+
+
+// ══════════════════════════════════════════════════════
+// BUILD OPTION SELECTION
+// ══════════════════════════════════════════════════════
+function selectBuildOption(opt) {
+  buildOption = opt;
+  document.getElementById('opt-full').classList.toggle('selected', opt === 'full');
+  document.getElementById('opt-recent').classList.toggle('selected', opt === 'recent');
+  document.getElementById('cutoff-row').classList.toggle('visible', opt === 'recent');
+  document.getElementById('cutoff-explain').classList.toggle('visible', opt === 'recent');
+  if (opt === 'recent') updateCutoffExplain();
+  document.getElementById('build-type-label').textContent = opt === 'full' ? 'Master Document' : 'Recent History (' + yearCutoff + ' Years)';
+}
+
+function setCutoff(years) {
+  yearCutoff = years;
+  document.getElementById('cutoff-10').classList.toggle('selected', years === 10);
+  document.getElementById('cutoff-15').classList.toggle('selected', years === 15);
+  document.getElementById('build-type-label').textContent = 'Recent History (' + yearCutoff + ' Years)';
+  updateCutoffExplain();
+}
+
+function updateCutoffExplain() {
+  const el = document.getElementById('cutoff-explain');
+  if (yearCutoff === 10) {
+    el.textContent = '10 years: Standard for most resume formats. Keeps the document concise and focused on your recent experience. Recommended if your earlier roles are in a different industry or less relevant to where your career is now.';
+  } else {
+    el.textContent = '15 years: Better for senior roles, technical careers, or fields where depth of experience matters. Recommended if your work from 10–15 years ago is still directly relevant to what you do today.';
+  }
+}
+
+function filterRolesByDate(roleList, years) {
+  const cutoffYear = new Date().getFullYear() - years;
+  return roleList.filter(r => {
+    // Keep current roles always
+    if (r.current) return true;
+    // Parse end date year
+    const endStr = r.endDate || '';
+    const match  = endStr.match(/\b(\d{4})\b/);
+    if (!match) return true; // no date = keep it
+    const endYear = parseInt(match[1]);
+    return endYear >= cutoffYear;
+  });
+}
+
+// ══════════════════════════════════════════════════════
+// BUILD SUMMARY
+// ══════════════════════════════════════════════════════
+function refreshBuildSummary() {
+  const el = document.getElementById('build-summary');
+  const name = document.getElementById('pi-name').value.trim() || '(No name)';
+  const approvedRoles = roles.filter(r => r.approved).length;
+  const totalRoles = roles.length;
+  const hasEdu = education.length > 0;
+  const hasCerts = certs.length > 0;
+  const hasSkills = (document.getElementById('skills-raw').value || '').trim().length > 0;
+
+  el.innerHTML = `<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px;">
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px;">Ready to build</div>
+    <div style="display:flex;flex-direction:column;gap:8px;font-size:13px;color:var(--muted);">
+      <div>📝 <strong style="color:var(--text)">${escHtml(name)}</strong> · ${docType === 'cv' ? 'Full CV' : 'Resume'}</div>
+      <div>${totalRoles > 0 ? `💼 ${approvedRoles} of ${totalRoles} roles approved` : '⚠️ No roles added'} ${approvedRoles < totalRoles && totalRoles > 0 ? '<span style="color:var(--amber);font-size:11px;"> — unapproved roles will still be included</span>' : ''}</div>
+      ${hasEdu ? `<div>🎓 ${education.length} education ${education.length === 1 ? 'entry' : 'entries'}</div>` : '<div style="opacity:0.5;">🎓 No education added</div>'}
+      ${hasCerts ? `<div>📜 ${certs.length} certification${certs.length === 1 ? '' : 's'}</div>` : ''}
+      ${hasSkills ? '<div>🔧 Skills provided</div>' : '<div style="opacity:0.5;">🔧 No skills added</div>'}
+    </div>
+    ${totalRoles === 0 ? `<div style="margin-top:12px;padding:10px 14px;background:#150808;border:1px solid #5a1a1a;border-radius:8px;font-size:12px;color:#fca5a5;">Add at least one role before building.</div>` : ''}
+  </div>`;
+
+  document.getElementById('build-btn').disabled = totalRoles === 0;
+  // Update button label
+  const lbl = buildOption === 'full' ? 'Master Document' : 'Recent History (' + yearCutoff + ' Years)';
+  const btnLbl = document.getElementById('build-type-label');
+  if (btnLbl) btnLbl.textContent = lbl;
+}
+
+// ══════════════════════════════════════════════════════
+// BUILD DOCUMENT
+// ══════════════════════════════════════════════════════
+async function buildDocument() {
+  if (isBuilding || roles.length === 0) return;
+
+  // Pre-flight check
+  if (mode === 'lm') {
+    const lmErr = await checkLMStudio();
+    if (lmErr) { showError(lmErr); return; }
+  }
+
+  isBuilding = true;
+  clearError();
+  document.getElementById('build-btn').disabled = true;
+  document.getElementById('build-spinner').style.display = 'flex';
+  document.getElementById('doc-review-section').classList.remove('visible');
+  document.getElementById('analyzer-callout').classList.remove('visible');
+
+  try {
+    const pi = {
+      name:      document.getElementById('pi-name').value.trim(),
+      title:     document.getElementById('pi-title').value.trim(),
+      email:     document.getElementById('pi-email').value.trim(),
+      phone:     document.getElementById('pi-phone').value.trim(),
+      location:  document.getElementById('pi-location').value.trim(),
+      linkedin:  document.getElementById('pi-linkedin').value.trim(),
+      portfolio: document.getElementById('pi-portfolio').value.trim(),
+    };
+    const skillsRaw = document.getElementById('skills-raw').value.trim();
+    const awardsRaw = document.getElementById('awards-raw').value.trim();
+    const citeFmt   = document.getElementById('citation-format') ? document.getElementById('citation-format').value : 'apa';
+    const isCV      = docType === 'cv';
+
+    // Filter roles based on build option
+    const rolesToBuild = buildOption === 'recent'
+      ? filterRolesByDate(roles, yearCutoff)
+      : roles;
+
+    if (rolesToBuild.length === 0) {
+      throw new Error('No roles fall within the selected ' + yearCutoff + '-year window. Try switching to Master Document or 15 Years.');
+    }
+
+    const optionLabel = buildOption === 'full'
+      ? 'Master Document'
+      : 'Recent History (' + yearCutoff + ' Years)';
+
+    document.getElementById('build-spinner-label').textContent = 'Building your ' + optionLabel + '…';
+    const sys = buildAssemblyPrompt(pi, skillsRaw, awardsRaw, citeFmt, isCV, buildOption, yearCutoff);
+    const userMsg = buildAssemblyUserMsg(pi, skillsRaw, awardsRaw, citeFmt, isCV, rolesToBuild);
+
+    const result = await callAIHighTokens(sys, userMsg);
+
+    revisionCount = 1;
+    revisionHistory = [];
+    document.getElementById('doc-editor').value = result;
+    document.getElementById('doc-version').textContent = 'Version 1';
+    document.getElementById('doc-review-title').textContent = optionLabel + ' — Ready to Review';
+    document.getElementById('doc-review-section').classList.add('visible');
+    document.getElementById('analyzer-callout').classList.add('visible');
+    document.getElementById('doc-review-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    // Update PDF print area
+    document.getElementById('pdf-document').innerHTML = formatForPrint(result, isCV ? 'CV' : 'Resume');
+
+  } catch(e) {
+    showError('Document build failed: ' + e.message);
+  } finally {
+    isBuilding = false;
+    document.getElementById('build-btn').disabled = false;
+    document.getElementById('build-spinner').style.display = 'none';
+  }
+}
+
+function buildAssemblyPrompt(pi, skills, awards, citeFmt, isCV, buildOpt, cutoffYrs) {
+  const label = isCV ? 'CV' : 'resume';
+  const optNote = buildOpt === 'recent' ? ' (most recent ' + cutoffYrs + ' years of experience)' : ' (complete work history)';
+  // Industries represented
+  const industries = [...new Set(roles.map(r => r.industry).filter(Boolean))].join(', ');
+  return 'You are a professional ' + label + ' writer.' +
+    ' Assemble a complete, polished ' + label + ' from the provided content.' +
+    '\n\nThis ' + label + ' spans the following industries: ' + (industries || 'various') + '.' +
+    '\n\nRULES:' +
+    '\n- Plain text only — no markdown, no asterisks, no hashtags' +
+    '\n- Section headers in ALL CAPS followed by a line of dashes' +
+    '\n- Bullets start with –' +
+    '\n- Role format: COMPANY NAME | Job Title | Start – End' +
+    '\n- ATS-safe: no tables, columns, or special formatting' +
+    '\n- Do NOT invent any content not provided — use [add detail] as placeholder where needed' +
+    '\n- Generate a Professional Summary of 3-' + (isCV ? '6' : '5') + ' lines from the full picture of all roles' +
+    '\n- Organize skills into categories (Technical Skills, Domain Knowledge, Tools & Platforms, Soft Skills)' +
+    (isCV ? '\n- CV: include all supporting sections fully — Publications, Languages, Awards' : '\n- Resume: be concise, every line must earn its place') +
+    '\n- Output the complete document only. No commentary.';
+}
+
+function buildAssemblyUserMsg(pi, skills, awards, citeFmt, isCV, rolesToBuild) {
+  const roleList = rolesToBuild || roles;
+  const NL = '\n';
+  let msg = 'PERSONAL INFO:' + NL +
+    'Name: ' + pi.name + NL +
+    (pi.title    ? 'Title: '     + pi.title    + NL : '') +
+    (pi.email    ? 'Email: '     + pi.email    + NL : '') +
+    (pi.phone    ? 'Phone: '     + pi.phone    + NL : '') +
+    (pi.location ? 'Location: '  + pi.location + NL : '') +
+    (pi.linkedin ? 'LinkedIn: '  + pi.linkedin + NL : '') +
+    (pi.portfolio? 'Portfolio: ' + pi.portfolio+ NL : '');
+
+  msg += NL + 'WORK HISTORY:' + NL;
+  roleList.forEach(r => {
+    msg += NL + r.title + ' | ' + (r.company || '') + ' | ' + (r.startDate || '?') + ' – ' + (r.current ? 'Present' : (r.endDate || '?')) + NL;
+    msg += 'Industry: ' + r.industry + NL;
+    if (r.bullets) msg += 'Approved bullets:' + NL + r.bullets + NL;
+    else if (r.description) msg += 'Description: ' + r.description + NL;
+  });
+
+  if (education.length) {
+    msg += NL + 'EDUCATION:' + NL;
+    education.forEach(e => {
+      msg += (e.degree || 'Degree') + ', ' + (e.field || '') + ' — ' + (e.school || '') + (e.year ? ', ' + e.year : '') + (e.gpa ? ' (GPA: ' + e.gpa + ')' : '') + NL;
+    });
+  }
+
+  if (certs.length) {
+    msg += NL + 'CERTIFICATIONS:' + NL;
+    certs.forEach(c => { msg += c.name + (c.issuer ? ', ' + c.issuer : '') + (c.year ? ' (' + c.year + ')' : '') + NL; });
+  }
+
+  if (skills) msg += NL + 'SKILLS (organize these into categories):' + NL + skills + NL;
+
+  if (isCV && publications.length) {
+    const fmtLabel = { apa:'APA', mla:'MLA', bluebook:'Bluebook', business:'Business/Trade' }[citeFmt] || 'APA';
+    msg += NL + 'PUBLICATIONS (format in ' + fmtLabel + ' style):' + NL;
+    publications.forEach(p => {
+      msg += (p.authors ? p.authors + '. ' : '') + (p.title || '') + '. ' + (p.journal || '') + (p.year ? ' (' + p.year + ')' : '') + '.' + NL;
+    });
+  }
+
+  if (isCV && languages.length) {
+    msg += NL + 'LANGUAGES:' + NL;
+    languages.forEach(l => { msg += l.language + ': ' + l.proficiency + NL; });
+  }
+
+  if (awards) msg += NL + 'AWARDS & HONORS:' + NL + awards + NL;
+
+  msg += NL + 'Now assemble the complete ' + (isCV ? 'CV' : 'resume') + '. Generate the Professional Summary from the full picture of all roles. Place it immediately after the contact header.';
+  return msg;
+}
+
+// ══════════════════════════════════════════════════════
+// DOCUMENT REVIEW & REVISION
+// ══════════════════════════════════════════════════════
+async function applyFeedback() {
+  const feedback = document.getElementById('doc-feedback-input').value.trim();
+  const currentDoc = document.getElementById('doc-editor').value.trim();
+  if (!feedback || !currentDoc || isRevising) return;
+
+  isRevising = true;
+  document.getElementById('apply-feedback-btn').disabled = true;
+  revisionHistory.push(currentDoc);
+
+  try {
+    const sys = 'You are a professional resume editor.' +
+      ' Make ONLY the changes described in the feedback. Preserve everything else exactly as written.' +
+      ' Do not invent content. Do not change the factual context of any role.' +
+      ' Return only the revised document — no commentary, no preamble.';
+    const userMsg = 'CURRENT DOCUMENT:\n""\n' + currentDoc + '\n""\n\nFEEDBACK:\n' + feedback;
+    const result = await callAI(sys, userMsg);
+    revisionCount++;
+    document.getElementById('doc-editor').value = result;
+    document.getElementById('doc-version').textContent = 'Version ' + revisionCount;
+    document.getElementById('doc-feedback-input').value = '';
+    document.getElementById('doc-feedback-input').style.height = 'auto';
+    document.getElementById('pdf-document').innerHTML = formatForPrint(result, docType === 'cv' ? 'CV' : 'Resume');
+  } catch(e) {
+    showError('Revision failed: ' + e.message);
+    if (revisionHistory.length > 0) document.getElementById('doc-editor').value = revisionHistory.pop();
+  } finally {
+    isRevising = false;
+    document.getElementById('apply-feedback-btn').disabled = false;
+  }
+}
+
+function copyDocument() {
+  const text = document.getElementById('doc-editor').value;
+  if (text) navigator.clipboard.writeText(text).catch(() => {});
+  const btn = event.target; btn.textContent = 'Copied!';
+  setTimeout(() => btn.textContent = 'Copy', 1800);
+}
+
+function printDocument() {
+  const text = document.getElementById('doc-editor').value;
+  if (text) document.getElementById('pdf-document').innerHTML = formatForPrint(text, docType === 'cv' ? 'CV' : 'Resume');
+  const printArea = document.getElementById('pdf-print-area');
+  printArea.style.display = 'block';
+  document.querySelectorAll('.shell > *:not(#pdf-print-area)').forEach(el => { el._pd = el.style.display; el.style.display = 'none'; });
+  window.print();
+  document.querySelectorAll('.shell > *:not(#pdf-print-area)').forEach(el => { el.style.display = el._pd || ''; });
+  printArea.style.display = 'none';
+}
+
+function autoResizeFeedback(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 100) + 'px';
+}
+
+// ══════════════════════════════════════════════════════
+// API CALLS
+// ══════════════════════════════════════════════════════
+async function callClaude(systemPrompt, userText) {
+  const safeSystem   = (systemPrompt && String(systemPrompt).trim()) ? String(systemPrompt) : 'You are a helpful assistant.';
+  const safeUserText = (userText     && String(userText).trim())     ? String(userText)     : 'Please proceed.';
+  let res;
+  try {
+    res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 4000,
+        system: safeSystem,
+        messages: [{ role: 'user', content: safeUserText }],
+      }),
+    });
+  } catch(e) {
+    if (e.message === 'Failed to fetch' || e.name === 'TypeError')
+      throw new Error('Cannot reach the Anthropic API. Check your internet connection, or switch to LM Studio mode.');
+    throw e;
+  }
+  const data = await res.json();
+  if (data.error) throw new Error(data.error.message);
+  return data.content.map(b => b.text || '').join('\n');
+}
+
+async function callLMStudio(systemPrompt, userText) {
+  const safeSystem   = (systemPrompt && String(systemPrompt).trim()) ? String(systemPrompt) : 'You are a helpful assistant.';
+  const safeUserText = (userText     && String(userText).trim())     ? String(userText)     : 'Please proceed.';
+  const base = (document.getElementById('lm-url').value.trim() || 'http://localhost:1234').replace(/\/$/, '');
+  let res;
+  try {
+    res = await fetch(base + '/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'local-model',
+        max_tokens: 4000,
+        messages: [
+          { role: 'system', content: safeSystem   },
+          { role: 'user',   content: safeUserText },
+        ],
+      }),
+    });
+  } catch(e) {
+    if (e.message === 'Failed to fetch' || e.name === 'TypeError')
+      throw new Error('Cannot reach LM Studio at ' + base + '. Make sure LM Studio is running with the local server enabled. (Server → Start Server)');
+    throw e;
+  }
+  const data = await res.json();
+  if (data.error) {
+    var errMsg = data.error.message || JSON.stringify(data.error);
+    if (errMsg.toLowerCase().includes('no model') || errMsg.toLowerCase().includes('no models loaded')) {
+      throw new Error('LM Studio has no model loaded. Open LM Studio, go to the Models tab, select a model, and click Load. Recommended: 13B+ parameters, 16K+ context.');
+    }
+    if (errMsg.toLowerCase().includes('context') && errMsg.toLowerCase().includes('exceed')) {
+      throw new Error('LM Studio context window too small. In server settings, increase context length to 16K+, then reload the model.');
+    }
+    throw new Error(errMsg);
+  }
+  if (!data.choices || !data.choices[0]) {
+    throw new Error('LM Studio returned an empty response. The model may have run out of context. Try increasing the context window in LM Studio server settings.');
+  }
+  return data.choices[0].message?.content || '';
+}
+
+async function callAI(systemPrompt, userText) {
+  return mode === 'lm' ? callLMStudio(systemPrompt, userText) : callClaude(systemPrompt, userText);
+}
+
+async function callAIHighTokens(systemPrompt, userText) {
+  const safeSystem   = (systemPrompt && String(systemPrompt).trim()) ? String(systemPrompt) : 'You are a helpful assistant.';
+  const safeUserText = (userText     && String(userText).trim())     ? String(userText)     : 'Please proceed.';
+  if (mode === 'lm') {
+    const base = (document.getElementById('lm-url').value.trim() || 'http://localhost:1234').replace(/\/$/, '');
+    const res = await fetch(base + '/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'local-model', max_tokens: 6000,
+        messages: [{ role: 'system', content: safeSystem }, { role: 'user', content: safeUserText }],
+      }),
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
+    return data.choices?.[0]?.message?.content || '';
+  } else {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6', max_tokens: 6000,
+        system: safeSystem,
+        messages: [{ role: 'user', content: safeUserText }],
+      }),
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error.message);
+    return data.content.map(b => b.text || '').join('\n');
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// HELPERS
+// ══════════════════════════════════════════════════════
+function formatForPrint(text, docLabel) {
+  const lines = text.split('\n');
+  let html = '<div style="margin-bottom:8pt;font-size:8pt;color:#666;text-align:right;">Generated ' + docLabel + ' · Resume Builder</div>';
+  let inList = false;
+  for (const raw of lines) {
+    const line = raw.trimEnd();
+    if (!line) { if (inList) { html += '</ul>'; inList = false; } html += "<div style='height:4pt'></div>"; continue; }
+    if (/^[-–—]{4,}$/.test(line)) { html += '<hr style="border:none;border-top:1.5px solid #222;margin:2pt 0 6pt;"/>'; continue; }
+    if (line === line.toUpperCase() && line.length > 3 && /[A-Z]/.test(line) && !/^[–\-]/.test(line)) {
+      if (inList) { html += '</ul>'; inList = false; }
+      html += '<h2 style="font-family:Arial,sans-serif;font-size:10pt;font-weight:700;letter-spacing:.08em;margin:14pt 0 2pt;text-transform:uppercase;">' + escHtml(line) + '</h2>'; continue;
+    }
+    if (/^[–\-]\s/.test(line)) {
+      if (!inList) { html += '<ul style="margin:3pt 0 3pt 14pt;padding:0;">'; inList = true; }
+      html += '<li style="margin-bottom:2pt;font-size:10pt;">' + escHtml(line.replace(/^[–\-]\s/, '')) + '</li>'; continue;
+    }
+    if (inList) { html += '</ul>'; inList = false; }
+    html += '<p style="font-size:10pt;margin:2pt 0;">' + escHtml(line) + '</p>';
+  }
+  if (inList) html += '</ul>';
+  return html;
+}
+
+function showError(msg) {
+  const box = document.getElementById('error-box');
+  box.textContent = msg; box.classList.add('visible');
+  box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+function clearError() { document.getElementById('error-box').classList.remove('visible'); }
+function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// ══════════════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  renderRoleCards();
+  renderRoleNav();
+  renderEducation();
+  renderCerts();
+});
+</script>
+</body>
+</html>
