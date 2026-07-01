@@ -3510,6 +3510,7 @@ async function generateLinkedIn() {
     });
 
     document.getElementById('linkedin-output').classList.add('visible');
+    if (mode === 'lm') persistCurrentRun(false);
 
   } catch (e) {
     alert('LinkedIn generation failed: ' + e.message);
@@ -3621,6 +3622,7 @@ async function generateCoverLetter() {
     var result = await callAIHighTokens(prompt, 'Write the cover letter now.');
     document.getElementById('cl-body').textContent = result;
     document.getElementById('cl-output').classList.add('visible');
+    if (mode === 'lm') persistCurrentRun(false);
   } catch(e) {
     alert('Cover letter generation failed: ' + e.message);
   } finally {
@@ -3692,6 +3694,7 @@ async function generateInterviewPrep() {
     document.getElementById('int-body-star').textContent      = extractSection(result, 'STAR STORIES');
     document.getElementById('int-body-salary').textContent    = extractSection(result, 'SALARY NEGOTIATION');
     document.getElementById('interview-output').classList.add('visible');
+    if (mode === 'lm') persistCurrentRun(false);
   } catch(e) {
     alert('Interview prep generation failed: ' + e.message);
   } finally {
@@ -3778,6 +3781,7 @@ async function generateEmailTemplates() {
     document.getElementById('email-body-followup').textContent = extractSection(result, 'FOLLOW-UP EMAIL');
     document.getElementById('email-body-linkedin').textContent = extractSection(result, 'LINKEDIN CONNECTION REQUEST');
     document.getElementById('email-output').classList.add('visible');
+    if (mode === 'lm') persistCurrentRun(false);
   } catch(e) {
     alert('Email template generation failed: ' + e.message);
   } finally {
@@ -3894,7 +3898,45 @@ function makeRunLabel() {
   return company || role || 'Untitled Analysis';
 }
 
+function getElText(id) {
+  var el = document.getElementById(id);
+  return el ? (el.textContent || '') : '';
+}
+
 function buildRunSnapshot() {
+  // Capture generator outputs — only save non-empty sections
+  var liHeadline = getElText('li-body-headline');
+  var generators = {};
+  if (liHeadline) {
+    generators.linkedin = {
+      headline:   liHeadline,
+      about:      getElText('li-body-about'),
+      experience: getElText('li-body-experience'),
+      skills:     getElText('li-body-skills'),
+      featured:   getElText('li-body-featured'),
+      settings:   getElText('li-body-settings'),
+    };
+  }
+  var clBody = getElText('cl-body');
+  if (clBody) generators.coverLetter = { body: clBody };
+
+  var intQ = getElText('int-body-questions');
+  if (intQ) {
+    generators.interview = {
+      questions: intQ,
+      star:      getElText('int-body-star'),
+      salary:    getElText('int-body-salary'),
+    };
+  }
+  var emailTY = getElText('email-body-thankyou');
+  if (emailTY) {
+    generators.email = {
+      thankyou: emailTY,
+      followup: getElText('email-body-followup'),
+      linkedin: getElText('email-body-linkedin'),
+    };
+  }
+
   return {
     id:       currentRunId || ('run_' + Date.now()),
     label:    makeRunLabel(),
@@ -3906,11 +3948,12 @@ function buildRunSnapshot() {
       company:  document.getElementById('ctx-company').value,
       jd:       document.getElementById('jd-input').value,
     },
-    results:  window._lastResults || {},
-    document: (document.getElementById('doc-editor')      || {}).value || '',
-    onePage:  (document.getElementById('doc-editor-1page') || {}).value || '',
-    approved: isApproved,
-    version:  revisionCount,
+    results:   window._lastResults || {},
+    document:  (document.getElementById('doc-editor')       || {}).value || '',
+    onePage:   (document.getElementById('doc-editor-1page') || {}).value || '',
+    approved:  isApproved,
+    version:   revisionCount,
+    generators: generators,
   };
 }
 
@@ -3953,6 +3996,20 @@ function refreshHistoryCount() {
 function openHistory()  { refreshHistoryList(); document.getElementById('history-modal').classList.add('visible'); }
 function closeHistory() { document.getElementById('history-modal').classList.remove('visible'); }
 
+// Event delegation for history modal buttons (avoids onclick quoting issues)
+document.addEventListener('click', function(e) {
+  const btn = e.target.closest('[data-action]');
+  if (!btn) return;
+  const id     = btn.dataset.id;
+  const action = btn.dataset.action;
+  if (!id || !action) return;
+  if (action === 'load')     loadRun(id);
+  if (action === 'download') downloadRun(id);
+  if (action === 'delete')   deleteRun(id);
+});
+
+
+
 function refreshHistoryList() {
   const runs    = loadAllRuns();
   const list    = document.getElementById('history-list');
@@ -3982,9 +4039,9 @@ function refreshHistoryList() {
           '<span>v' + (run.version || 1) + '</span>' + curTag +
         '</div>' +
         '<div class="saved-run-actions">' +
-          '<button class="saved-run-btn" onclick="loadRun(\"' + run.id + '\")">Load</button>' +
-          '<button class="saved-run-btn" onclick="downloadRun(\"' + run.id + '\")">Download JSON</button>' +
-          '<button class="saved-run-btn danger" onclick="deleteRun(\"' + run.id + '\")">Delete</button>' +
+          '<button class="saved-run-btn" data-id="' + run.id + '" data-action="load">Load</button>' +
+          '<button class="saved-run-btn" data-id="' + run.id + '" data-action="download">Download JSON</button>' +
+          '<button class="saved-run-btn danger" data-id="' + run.id + '" data-action="delete">Delete</button>' +
         '</div>' +
       '</div>'
     );
@@ -4020,6 +4077,61 @@ function loadRun(id) {
   }
   revisionCount = run.version || 1;
   document.getElementById('revision-counter').textContent = 'Version ' + revisionCount;
+
+  // Restore generator outputs if they were saved
+  var gen = run.generators || {};
+
+  if (gen.linkedin && gen.linkedin.headline) {
+    var liSections = ['headline','about','experience','skills','featured','settings'];
+    liSections.forEach(function(k) {
+      var el = document.getElementById('li-body-' + k);
+      if (el && gen.linkedin[k]) el.textContent = gen.linkedin[k];
+    });
+    document.getElementById('linkedin-output').classList.add('visible');
+    document.getElementById('linkedin-section').classList.add('visible');
+  }
+
+  if (gen.coverLetter && gen.coverLetter.body) {
+    var clEl = document.getElementById('cl-body');
+    if (clEl) clEl.textContent = gen.coverLetter.body;
+    document.getElementById('cl-output').classList.add('visible');
+    document.getElementById('cover-letter-gen-section').classList.add('visible');
+  }
+
+  if (gen.interview && gen.interview.questions) {
+    var intMap = {questions:'int-body-questions', star:'int-body-star', salary:'int-body-salary'};
+    Object.keys(intMap).forEach(function(k) {
+      var el = document.getElementById(intMap[k]);
+      if (el && gen.interview[k]) el.textContent = gen.interview[k];
+    });
+    document.getElementById('interview-output').classList.add('visible');
+    document.getElementById('interview-section').classList.add('visible');
+  }
+
+  if (gen.email && gen.email.thankyou) {
+    var emailMap = {thankyou:'email-body-thankyou', followup:'email-body-followup', linkedin:'email-body-linkedin'};
+    Object.keys(emailMap).forEach(function(k) {
+      var el = document.getElementById(emailMap[k]);
+      if (el && gen.email[k]) el.textContent = gen.email[k];
+    });
+    document.getElementById('email-output').classList.add('visible');
+    document.getElementById('email-section').classList.add('visible');
+  }
+
+  // Restore approval state if it was approved
+  if (run.approved) {
+    isApproved = true;
+    approvedDoc = run.document || '';
+    var approveBtn = document.getElementById('approve-btn');
+    if (approveBtn) {
+      approveBtn.textContent = '✓ Approved';
+      approveBtn.classList.add('approved');
+    }
+    document.getElementById('feedback-row').style.display = 'none';
+    var feedbackNote = document.getElementById('feedback-note');
+    if (feedbackNote) feedbackNote.style.display = 'none';
+  }
+
   showSaveControls();
   showSaveIndicator('Loaded');
   closeHistory();
